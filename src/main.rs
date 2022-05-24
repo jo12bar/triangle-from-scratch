@@ -7,12 +7,12 @@ use core::ptr;
 use triangle_from_scratch::{wide_null, win32::*};
 
 fn main() {
-    let h_instance = unsafe { GetModuleHandleW(ptr::null()) };
+    let hinstance = get_process_handle();
     let sample_window_class_wn = wide_null("Sample Window Class");
 
     let wc = WNDCLASSW {
         lpfnWndProc: Some(window_procedure),
-        hInstance: h_instance,
+        hInstance: hinstance,
         lpszClassName: sample_window_class_wn.as_ptr(),
         hCursor: unsafe { LoadCursorW(ptr::null_mut(), IDC_ARROW) },
         ..Default::default()
@@ -45,7 +45,7 @@ fn main() {
             CW_USEDEFAULT,
             ptr::null_mut(),
             ptr::null_mut(),
-            h_instance,
+            hinstance,
             lparam.cast(),
         )
     };
