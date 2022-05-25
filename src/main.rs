@@ -3,29 +3,24 @@
 // the release profile).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use core::ptr;
 use triangle_from_scratch::{wide_null, win32::*};
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let hinstance = get_process_handle();
-    let sample_window_class_wn = wide_null("Sample Window Class");
+    let sample_window_class = "Sample Window Class";
+    let sample_window_class_wn = wide_null(sample_window_class);
 
     let wc = WNDCLASSW {
         lpfnWndProc: Some(window_procedure),
         hInstance: hinstance,
         lpszClassName: sample_window_class_wn.as_ptr(),
-        hCursor: unsafe { LoadCursorW(ptr::null_mut(), IDC_ARROW) },
+        hCursor: load_predefined_cursor(IDCursor::Arrow)?,
         ..Default::default()
     };
 
-    let atom = unsafe { RegisterClassW(&wc) };
+    let _atom = unsafe { register_class(&wc) }?;
 
-    if atom == 0 {
-        let last_error = unsafe { GetLastError() };
-        panic!("Could not register the window class, error code {last_error:#x}",);
-    }
-
-    let sample_window_name_wn = wide_null("Sample Window Name");
+    let sample_window_name = "Sample Window Name";
 
     // This is data to pass to the window, which the window procedure can handle in its WM_CREATE
     // or WM_NCCREATE message handlers.
@@ -34,41 +29,32 @@ fn main() {
     let lparam: *mut i32 = Box::leak(Box::new(5_i32));
 
     let hwnd = unsafe {
-        CreateWindowExW(
-            0,
-            sample_window_class_wn.as_ptr(),
-            sample_window_name_wn.as_ptr(),
-            WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            ptr::null_mut(),
-            ptr::null_mut(),
-            hinstance,
+        create_app_window(
+            sample_window_class,
+            sample_window_name,
+            None,
+            [600, 400],
             lparam.cast(),
-        )
+        )?
     };
-    if hwnd.is_null() {
-        panic!("Failed to create a window.");
-    }
 
     let _previously_visible = unsafe { ShowWindow(hwnd, SW_SHOW) };
 
-    let mut msg = MSG::default();
     loop {
-        let message_return = unsafe { GetMessageW(&mut msg, ptr::null_mut(), 0, 0) };
+        match get_any_message() {
+            Ok(msg) => {
+                if msg.message == WM_QUIT {
+                    std::process::exit(msg.wParam as i32);
+                }
 
-        if message_return == 0 {
-            break;
-        } else if message_return == -1 {
-            let last_error = unsafe { GetLastError() };
-            panic!("Error with `GetMessageW`, error code: {last_error:#x}");
-        }
+                translate_message(&msg);
 
-        unsafe {
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
+                unsafe {
+                    DispatchMessageW(&msg);
+                }
+            }
+
+            Err(e) => panic!("Error when fetching from message queue: {e}"),
         }
     }
 }
@@ -99,10 +85,8 @@ pub unsafe extern "system" fn window_procedure(
                 return 0;
             }
 
-            let boxed_i32_ptr: *mut i32 = (*createstruct).lpCreateParams.cast();
-            SetWindowLongPtrW(hwnd, GWLP_USERDATA, boxed_i32_ptr as LONG_PTR);
-
-            return 1;
+            let ptr = (*createstruct).lpCreateParams as *mut i32;
+            return set_window_userdata(hwnd, ptr).is_ok() as LRESULT;
         }
 
         // The window is being created. Application state should be setup here.
@@ -118,17 +102,27 @@ pub unsafe extern "system" fn window_procedure(
 
         // Paint the window's client area.
         WM_PAINT => {
-            let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut i32;
-            println!("Current ptr: {}", *ptr);
-            *ptr += 1;
+            match get_window_userdata::<i32>(hwnd) {
+                Ok(ptr) if !ptr.is_null() => {
+                    println!("Current ptr: {}", *ptr);
+                    *ptr += 1;
+                }
 
-            let mut ps = PAINTSTRUCT::default();
-            let hdc = BeginPaint(hwnd, &mut ps);
+                Ok(_) => {
+                    println!("GWLP_USERDATA pointer is null.");
+                }
 
-            // Just fill the background with the default window color
-            let _success = FillRect(hdc, &ps.rcPaint, (COLOR_WINDOW + 1) as HBRUSH);
+                Err(e) => {
+                    println!("Error while getting the GWLP_USERDATA pointer: {e}");
+                }
+            }
 
-            EndPaint(hwnd, &ps);
+            do_some_painting_with(hwnd, |hdc, _erase_bg, target_rect| {
+                // Just fill the background with the default window color
+                fill_rect_with_sys_color(hdc, &target_rect, SysColor::Highlight)?;
+                Ok(())
+            })
+            .unwrap_or_else(|e| println!("Error during painting: {e}"));
         }
 
         // Destroy the window class when told to close.
@@ -138,13 +132,25 @@ pub unsafe extern "system" fn window_procedure(
         // Tell the system the application quit upon window class destruction.
         WM_DESTROY => {
             // Remember to clean up application state upon destruction!
-            let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut i32;
+            match get_window_userdata::<i32>(hwnd) {
+                Ok(ptr) if !ptr.is_null() => {
+                    Box::from_raw(ptr); // by not saving the box, it immediately gets dropped and the
+                                        // application state deallocated.
+                    println!("Deallocated application state!");
+                }
 
-            Box::from_raw(ptr); // by not saving the box, it immediately gets dropped and the
-                                // application state deallocated.
-            println!("Deallocated application state!");
+                Ok(_) => {
+                    println!(
+                        "GWLP_USERDATA pointer is null, so no application state cleanup required."
+                    );
+                }
 
-            PostQuitMessage(0);
+                Err(e) => {
+                    println!("Error while getting the GWLP_USERDATA pointer to clean up application state: {e}");
+                }
+            }
+
+            post_quit_message(0);
         }
 
         _ => return DefWindowProcW(hwnd, msg, wparam, lparam),

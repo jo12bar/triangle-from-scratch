@@ -23,6 +23,9 @@ pub type BOOL = c_int;
 /// ```
 pub type BYTE = u8;
 
+/// The C representation of a `char` on x86.
+pub type c_char = i8;
+
 /// The C representation of an `int` on x86.
 pub type c_int = i32;
 
@@ -108,6 +111,16 @@ pub type HICON = HANDLE;
 /// ```
 pub type HINSTANCE = HANDLE;
 
+/// A handle to a local memory block.
+///
+/// [Per MSDN](https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types#hlocal),
+/// this is defined in WinDef.h as follows:
+///
+/// ```c
+/// typedef HANDLE HLOCAL;
+/// ```
+pub type HLOCAL = HANDLE;
+
 /// A handle to a [menu](https://docs.microsoft.com/en-us/windows/desktop/menurc/menus).
 ///
 /// [Per MSDN](https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types), this is
@@ -160,6 +173,16 @@ pub type LONG_PTR = isize;
 /// typedef LONG_PTR LPARAM;
 /// ```
 pub type LPARAM = LONG_PTR;
+
+/// A pointer to a constant value of any type.
+///
+/// [Per MSDN](https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types#lpcvoid),
+/// this is defined in WinDef.h as follows:
+///
+/// ```c
+/// typedef const void *LPCVOID;
+/// ```
+pub type LPCVOID = *const core::ffi::c_void;
 
 /// A pointer to a constant null-terminated string of 16-bit Unicode characters.
 ///
@@ -248,6 +271,13 @@ pub type UINT_PTR = usize;
 /// #endif
 /// ```
 pub type ULONG_PTR = usize;
+
+/// A language and implementation-specific structure for passing a variadic number
+/// of parameters to a function - for instance, to [`FormatMessageW`][msdn-format-message-w].
+/// For now, we just represent it as a mutable buffer of `char`'s.
+///
+/// [msdn-format-message-w]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessagew
+pub type va_list = *mut c_char;
 
 /// A 16-bit Unicode character.
 ///

@@ -1,6 +1,8 @@
 //! Win32 structures, and their associated typedefs (where defined).
 
-use super::typedefs::*;
+use core::{fmt, ptr};
+
+use super::{constants::*, extern_bindings::FormatMessageW, typedefs::*, LocalFree};
 
 /// Implements zero-initialization for C-style structs.
 ///
@@ -25,6 +27,7 @@ macro_rules! unsafe_impl_default_zeroed {
 ///
 /// [wndclassw_msdn]: https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-wndclassw
 /// [registerclass_msdn]: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassa
+#[derive(Clone)]
 #[repr(C)]
 pub struct WNDCLASSW {
     /// The [Class Styles](https://docs.microsoft.com/en-us/windows/desktop/winmsg/about-window-classes)
@@ -66,6 +69,7 @@ unsafe_impl_default_zeroed! { WNDCLASSW }
 /// [CreateWindowEx][msdn-create-window-ex] function.
 ///
 /// [msdn-create-window-ex]: https://docs.microsoft.com/en-us/windows/desktop/api/winuser/nf-winuser-createwindowexa
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct CREATESTRUCTW {
     /// Additional data that may be used to create the window. In particular, this member may contain
@@ -122,6 +126,7 @@ unsafe_impl_default_zeroed! { CREATESTRUCTW }
 /// Contains information an application can use to paint the client area of a window it owns.
 ///
 /// [See MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-paintstruct).
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct PAINTSTRUCT {
     /// A handle to the display device context to be used for painting.
@@ -155,6 +160,7 @@ unsafe_impl_default_zeroed! { PAINTSTRUCT }
 /// Defines the xy-coordinates of a point.
 ///
 /// [See MSDN](https://docs.microsoft.com/en-us/windows/win32/api/windef/ns-windef-point).
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct POINT {
     pub x: LONG,
@@ -170,6 +176,7 @@ unsafe_impl_default_zeroed! { POINT }
 /// Defines a rectangle by the coordinates of its upper-left and lower-right corners.
 ///
 /// [See MSDN](https://docs.microsoft.com/en-us/windows/win32/api/windef/ns-windef-rect).
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct RECT {
     pub left: LONG,
@@ -187,6 +194,7 @@ unsafe_impl_default_zeroed! { RECT }
 /// Contains message information from a thread's message queue.
 ///
 /// See [MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-msg).
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct MSG {
     /// A handle to the window whose window procedure receives the message. NULL if this message is
@@ -212,3 +220,114 @@ pub type NPMSG = *mut MSG;
 pub type LPMSG = *mut MSG;
 
 unsafe_impl_default_zeroed! { MSG }
+
+/// Frees a local block of memory upon being dropped.
+#[derive(Debug)]
+pub struct OnDropLocalFree(HLOCAL);
+
+impl OnDropLocalFree {
+    /// Wraps a HLOCAL handle.
+    ///
+    /// ## Safety
+    ///
+    /// `hlocal` **must ACTUALLY be** a handle to a valid block of local memory. If this is not the
+    /// case, undefined behaviour will occur when this structure is dropped.
+    ///
+    /// Do not attempt to access the memory pointed to by `hlocal` after this structure is dropped,
+    /// as this is a use-after-free error and will likely result in program crashes and incorrect
+    /// behaviour.
+    #[must_use]
+    pub unsafe fn from_raw_handle(hlocal: HLOCAL) -> Self {
+        Self(hlocal)
+    }
+}
+
+impl Drop for OnDropLocalFree {
+    fn drop(&mut self) {
+        // Safety: as long as self.0 is actually a handle to a valid block of local memory,
+        // freeing it should be fine.
+        unsafe { LocalFree(self.0) };
+    }
+}
+
+/// Represents an error from some Win32 API call.
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct Win32Error(pub DWORD);
+
+impl fmt::Debug for Win32Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Win32Error")
+            .field(&format!("{} => {}", &self.0, &self))
+            .finish()
+    }
+}
+
+impl fmt::Display for Win32Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // If the 29th bit is set, then it's an application error. The system doesn't know how to
+        // format those, so we won't even ask it. Instead, we'll just show display that and return
+        // early.
+        if self.0 & (1 << 29) > 0 {
+            return write!(f, "Win32ApplicationError({})", self.0);
+        }
+
+        let dwFlags =
+              FORMAT_MESSAGE_ALLOCATE_BUFFER              // allocate a large enough buffer for the message
+            | FORMAT_MESSAGE_FROM_SYSTEM                  // error messages are system messages
+            | FORMAT_MESSAGE_IGNORE_INSERTS               // don't process inserted variadic arguments
+            ;
+
+        let lpSource = ptr::null_mut();
+        let dwMessageId = self.0;
+        let dwLanguageId = 0;
+
+        let mut buffer: *mut u16 = ptr::null_mut();
+        let lpBuffer = &mut buffer as *mut *mut u16 as *mut u16;
+
+        let nSize = 0;
+        let Arguments = ptr::null_mut();
+
+        // Safety: Assuming all the parameters are correct, this shouldn't fail in any unrecoverable
+        // manner.
+        let tchar_count_excluding_null = unsafe {
+            FormatMessageW(
+                dwFlags,
+                lpSource,
+                dwMessageId,
+                dwLanguageId,
+                lpBuffer,
+                nSize,
+                Arguments,
+            )
+        };
+
+        if tchar_count_excluding_null == 0 || buffer.is_null() {
+            // some sort of problem happened. we can't usefully get_last_error since
+            // Display formatting doesn't let you give an error value.
+            return Err(core::fmt::Error);
+        }
+
+        // Safety: This slice is valid as long as the buffer filled by FormatMessageW is not
+        // deallocated. The drop gaurd below ensures deallocation only happens at the end of the
+        // function.
+        let buffer_slice: &[u16] =
+            unsafe { core::slice::from_raw_parts(buffer, tchar_count_excluding_null as usize) };
+
+        // Safety: Per FormatMessageW's MSDN, the buffer must be freed with LocalFree. Therefore,
+        // it is a valid HLOCAL.
+        let _buffer_on_drop = unsafe { OnDropLocalFree::from_raw_handle(buffer as HLOCAL) };
+
+        for decode_result in core::char::decode_utf16(buffer_slice.iter().copied()) {
+            match decode_result {
+                Ok('\r') | Ok('\n') => write!(f, " ")?, // eat newlines
+                Ok(chr) => write!(f, "{chr}")?,
+                Err(_) => write!(f, "�")?,
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl std::error::Error for Win32Error {}

@@ -1,14 +1,31 @@
 //! Bindings to Windows functions and variables contained in various DLLs.
 
-use super::{typedefs::*, structs::*};
+use super::{structs::*, typedefs::*};
 
 #[link(name = "Kernel32")]
 extern "system" {
+    /// See [`FormatMessageW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessagew).
+    pub fn FormatMessageW(
+        dwFlags: DWORD,
+        lpSource: LPCVOID,
+        dwMessageId: DWORD,
+        dwLanguageId: DWORD,
+        lpBuffer: LPWSTR,
+        nSize: DWORD,
+        Arguments: va_list,
+    ) -> DWORD;
+
     /// See [`GetLastError` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror).
     pub fn GetLastError() -> DWORD;
 
     /// See [`GetModuleHandleW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandlew).
     pub fn GetModuleHandleW(lpModuleName: LPCWSTR) -> HMODULE;
+
+    /// See [`LocalFree` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-localfree).
+    pub fn LocalFree(hMem: HLOCAL) -> HLOCAL;
+
+    /// See [`SetLastError` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-setlasterror).
+    pub fn SetLastError(dwErrCode: DWORD);
 }
 
 #[link(name = "User32")]
