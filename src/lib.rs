@@ -1,3 +1,4 @@
+pub mod str_util;
 #[cfg(windows)]
 pub mod win32;
 

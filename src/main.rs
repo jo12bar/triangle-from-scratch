@@ -3,24 +3,24 @@
 // the release profile).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use triangle_from_scratch::{wide_null, win32::*};
+use triangle_from_scratch::{utf16_null, win32::*};
+
+const WINDOW_CLASS: &str = "Sample Window Class";
+const WINDOW_CLASS_WN: [u16; 20] = utf16_null!("Sample Window Class");
+const WINDOW_NAME: &str = "Sample Window Name";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let hinstance = get_process_handle();
-    let sample_window_class = "Sample Window Class";
-    let sample_window_class_wn = wide_null(sample_window_class);
 
     let wc = WNDCLASSW {
         lpfnWndProc: Some(window_procedure),
         hInstance: hinstance,
-        lpszClassName: sample_window_class_wn.as_ptr(),
+        lpszClassName: WINDOW_CLASS_WN.as_ptr(),
         hCursor: load_predefined_cursor(IDCursor::Arrow)?,
         ..Default::default()
     };
 
     let _atom = unsafe { register_class(&wc) }?;
-
-    let sample_window_name = "Sample Window Name";
 
     // This is data to pass to the window, which the window procedure can handle in its WM_CREATE
     // or WM_NCCREATE message handlers.
@@ -28,15 +28,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // in is WM_DESTROY message handler.
     let lparam: *mut i32 = Box::leak(Box::new(5_i32));
 
-    let hwnd = unsafe {
-        create_app_window(
-            sample_window_class,
-            sample_window_name,
-            None,
-            [600, 400],
-            lparam.cast(),
-        )?
-    };
+    let hwnd =
+        unsafe { create_app_window(WINDOW_CLASS, WINDOW_NAME, None, [600, 400], lparam.cast())? };
 
     let _previously_visible = unsafe { ShowWindow(hwnd, SW_SHOW) };
 
