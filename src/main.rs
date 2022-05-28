@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         hInstance: hinstance,
         lpszClassName: WINDOW_CLASS_WN.as_ptr(),
         hCursor: load_predefined_cursor(IDCursor::Arrow)?,
+        style: CS_OWNDC | CS_HREDRAW | CS_VREDRAW,
         ..Default::default()
     };
 
