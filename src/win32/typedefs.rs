@@ -32,6 +32,9 @@ pub type c_int = i32;
 /// The C representation of a `long` on x86.
 pub type c_long = i32;
 
+/// The C representation of a single-precision floating point number on x86
+pub type c_float = f32;
+
 /// The C representation of an `unsigned int` on x86.
 pub type c_uint = u32;
 
@@ -50,6 +53,9 @@ pub type c_ushort = u16;
 /// typedef unsigned long DWORD;
 /// ```
 pub type DWORD = c_ulong;
+
+/// Win32 float definition
+pub type FLOAT = c_float;
 
 /// A handle to a win32 object.
 ///
@@ -90,6 +96,9 @@ pub type HCURSOR = HICON;
 /// typedef HANDLE HDC;
 /// ```
 pub type HDC = HANDLE;
+
+/// A handle to a GL rendering context.
+pub type HGLRC = HANDLE;
 
 /// A handle to an [icon](https://docs.microsoft.com/en-us/windows/win32/menurc/icons).
 ///
@@ -174,6 +183,11 @@ pub type LONG_PTR = isize;
 /// ```
 pub type LPARAM = LONG_PTR;
 
+/// A pointer to an ANSI string.
+///
+/// For UTF-16 strings, use [`LPCWSTR`] instead.
+pub type LPCSTR = *const c_char;
+
 /// A pointer to a constant value of any type.
 ///
 /// [Per MSDN](https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types#lpcvoid),
@@ -223,6 +237,9 @@ pub type LPWSTR = *mut WCHAR;
 /// typedef LONG_PTR LRESULT;
 /// ```
 pub type LRESULT = LONG_PTR;
+
+/// Pointer to a procedure of unknown type.
+pub type PROC = *mut core::ffi::c_void;
 
 /// A pointer to any type - basically a c-style void pointer.
 ///

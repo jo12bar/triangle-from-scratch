@@ -3,8 +3,6 @@
 // the release profile).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use core::ptr;
-
 use triangle_from_scratch::{utf16_null, win32::*};
 
 const WINDOW_CLASS: &str = "Sample Window Class";
@@ -26,62 +24,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _atom = unsafe { register_class(&wc) }?;
 
     // Set up our request for what we want the window's pixel format to be.
-    let pfd = PIXELFORMATDESCRIPTOR {
-        dwFlags: PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-        iPixelType: PFD_TYPE_RGBA,
-        cColorBits: 32,
-        cDepthBits: 24,
-        cStencilBits: 8,
-        iLayerType: PFD_MAIN_PLANE,
-        ..Default::default()
-    };
+    // let pfd = PIXELFORMATDESCRIPTOR {
+    //     dwFlags: PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+    //     iPixelType: PFD_TYPE_RGBA,
+    //     cColorBits: 32,
+    //     cDepthBits: 24,
+    //     cStencilBits: 8,
+    //     iLayerType: PFD_MAIN_PLANE,
+    //     ..Default::default()
+    // };
 
-    // We have to create a fake window in order to get a handle to a DC so we can set the pixel
-    // format of our future real window. This is because Windows doesn't allow you to *change* the
-    // pixel format of a window post-creation, but we need a DC from a window to set the pixel
-    // format!
-    {
-        const FAKE_WINDOW_CLASS: &str = "Fake Window Class";
-        const FAKE_WINDOW_CLASS_WN: [u16; 18] = utf16_null!("Fake Window Class");
+    // Get some basic WGL functions to use for context creation and vsync setting and multisampling
+    // and so on
+    let (wgl_extensions, wgl_choose_pixel_format, wgl_create_context_attribs, wgl_swap_interval) =
+        get_wgl_basics()?;
 
-        let fake_wc = WNDCLASSW {
-            style: CS_OWNDC,
-            lpfnWndProc: Some(DefWindowProcW),
-            hInstance: get_process_handle(),
-            lpszClassName: FAKE_WINDOW_CLASS_WN.as_ptr(),
-            ..Default::default()
-        };
-
-        let atom = unsafe { register_class(&fake_wc) }?;
-
-        let fake_hwnd = unsafe {
-            create_app_window(
-                FAKE_WINDOW_CLASS,
-                "Fake Window",
-                None,
-                [1, 1],
-                ptr::null_mut(),
-            )
-        }?;
-
-        let fake_hdc = unsafe { get_dc(fake_hwnd) }.unwrap();
-        let pf_index = unsafe { choose_pixel_format(fake_hdc, &pfd) }?;
-
-        unsafe { set_pixel_format(fake_hdc, pf_index, &pfd) }?;
-
-        if let Ok(pfd) = unsafe { describe_pixel_format(fake_hdc, pf_index) } {
-            println!("{:?}", pfd);
-        } else {
-            println!("Error: Couldn't get a pixel format description.");
-        }
-
-        assert!(
-            unsafe { release_dc(fake_hwnd, fake_hdc) },
-            "Failed to release handle to DC from fake window used for pixel format setting"
-        );
-        unsafe { destroy_window(fake_hwnd) }?;
-        unsafe { unregister_class_by_atom(atom, get_process_handle()) }?;
-    }
+    println!("WGL Extensions: {:?}", wgl_extensions);
+    println!("> wglChoosePixelFormatARB --> {:?}", unsafe {
+        core::mem::transmute::<wglChoosePixelFormatARB_t, *mut core::ffi::c_void>(
+            wgl_choose_pixel_format,
+        )
+    });
+    println!("> wglCreateContextAttribsARB --> {:?}", unsafe {
+        core::mem::transmute::<wglCreateContextAttribsARB_t, *mut core::ffi::c_void>(
+            wgl_create_context_attribs,
+        )
+    });
+    println!("> wglSwapIntervalEXT --> {:?}", unsafe {
+        core::mem::transmute::<wglSwapIntervalEXT_t, *mut core::ffi::c_void>(wgl_swap_interval)
+    });
 
     // This is data to pass to the window, which the window procedure can handle in its WM_CREATE
     // or WM_NCCREATE message handlers.

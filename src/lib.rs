@@ -2,7 +2,21 @@ pub mod str_util;
 #[cfg(windows)]
 pub mod win32;
 
-/// Turns a Rust string slice into a null-terminated utf-16 vector.
-pub fn wide_null(s: &str) -> Vec<u16> {
-    s.encode_utf16().chain(Some(0)).collect()
+pub use str_util::wide_null;
+
+/// Gathers up the bytes from a buffer into a vector, copying them.
+///
+/// ## Safety
+///
+/// The byte sequence must be null-terminated. Otherwise, the vector will continue accumulating
+/// bytes until either a null byte is reached or the program segfaults.
+///
+/// The output excludes the terminating null byte.
+pub unsafe fn gather_null_terminated_bytes(mut p: *const u8) -> Vec<u8> {
+    let mut v = vec![];
+    while *p != 0 {
+        v.push(*p);
+        p = p.add(1);
+    }
+    v
 }

@@ -18,7 +18,10 @@ pub use extern_bindings::*;
 pub use structs::*;
 pub use typedefs::*;
 
-use crate::wide_null;
+use crate::{
+    c_str, gather_null_terminated_bytes, str_util::min_alloc_lossy_into_string, utf16_null,
+    wide_null,
+};
 
 // Prepares the specified window for painting.
 ///
@@ -344,6 +347,131 @@ pub unsafe fn get_window_userdata<T>(hwnd: HWND) -> Result<*mut T, Win32Error> {
     }
 }
 
+/// Get the basic list of GL extensions and pointers to essential WGL functions that we need to do
+/// more complex OpenGL work.
+///
+/// Creates a fake window with the proper [`PIXELFORMATDESCRIPTOR`] and uses it to create an OpenGL 1.1
+/// context. The list of possible extensions is gotten, and then pointers to three essential WGL
+/// functions. Then the OpenGL context is destroyed and the window is destroyed.
+pub fn get_wgl_basics() -> Result<
+    (
+        Vec<String>,
+        wglChoosePixelFormatARB_t,
+        wglCreateContextAttribsARB_t,
+        wglSwapIntervalEXT_t,
+    ),
+    Win32Error,
+> {
+    const FAKE_WINDOW_CLASS: &str =
+        "Fake Window Class That Is Unlikely To Clash 1239429384asdhakjsdh12389eh";
+    const FAKE_WINDOW_CLASS_WN: [u16; 72] =
+        utf16_null!("Fake Window Class That Is Unlikely To Clash 1239429384asdhakjsdh12389eh");
+
+    let instance = get_process_handle();
+
+    let wc = WNDCLASSW {
+        style: CS_OWNDC,
+        lpfnWndProc: Some(DefWindowProcW),
+        hInstance: get_process_handle(),
+        lpszClassName: FAKE_WINDOW_CLASS_WN.as_ptr(),
+        ..Default::default()
+    };
+
+    let pfd = PIXELFORMATDESCRIPTOR {
+        dwFlags: PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+        iPixelType: PFD_TYPE_RGBA,
+        cColorBits: 32,
+        cDepthBits: 24,
+        cStencilBits: 8,
+        iLayerType: PFD_MAIN_PLANE,
+        ..Default::default()
+    };
+
+    /// Unregisters the window class on drop
+    struct OnDropUnregisterClassW(ATOM, HINSTANCE);
+    impl Drop for OnDropUnregisterClassW {
+        fn drop(&mut self) {
+            let _ = unsafe { unregister_class_by_atom(self.0, self.1) };
+        }
+    }
+    let _atom = OnDropUnregisterClassW(unsafe { register_class(&wc) }?, instance);
+
+    /// Destroys the window on drop
+    struct OnDropDestroyWindow(HWND);
+    impl Drop for OnDropDestroyWindow {
+        fn drop(&mut self) {
+            let _ = unsafe { destroy_window(self.0) };
+        }
+    }
+    let hwnd = OnDropDestroyWindow(unsafe {
+        create_app_window(
+            FAKE_WINDOW_CLASS,
+            "Fake Window",
+            None,
+            [1, 1],
+            ptr::null_mut(),
+        )
+    }?);
+
+    /// Releases the DC on drop
+    struct OnDropReleaseDC(HWND, HDC);
+    impl Drop for OnDropReleaseDC {
+        fn drop(&mut self) {
+            let _ = unsafe { release_dc(self.0, self.1) };
+        }
+    }
+    let hdc = OnDropReleaseDC(
+        hwnd.0,
+        unsafe { get_dc(hwnd.0) }.ok_or(Win32Error(Win32Error::APPLICATION_ERROR_BIT))?,
+    );
+
+    // Set the pixel format
+    let pf_index = unsafe { choose_pixel_format(hdc.1, &pfd) }?;
+    unsafe { set_pixel_format(hdc.1, pf_index, &pfd) }?;
+
+    // Create a fake OpenGL 1.1 context so we can get a better OpenGL context for later use.
+
+    /// Deletes the GL context on drop
+    struct OnDropDeleteContext(HGLRC);
+    impl Drop for OnDropDeleteContext {
+        fn drop(&mut self) {
+            let _ = unsafe { wgl_delete_context(self.0) };
+        }
+    }
+    let hglrc = OnDropDeleteContext(unsafe { wgl_create_context(hdc.1) }?);
+
+    unsafe { wgl_make_current(hdc.1, hglrc.0) }?;
+
+    // Get the list of WGL extensions available
+    let wgl_extensions: Vec<String> = unsafe { wgl_get_extension_string_arb(hdc.1) }
+        .map(|s| {
+            s.split(' ')
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Map some WGL functions
+    let choose_pixel_format: wglChoosePixelFormatARB_t =
+        unsafe { core::mem::transmute(wgl_get_proc_address(c_str!("wglChoosePixelFormatARB"))?) };
+    let create_context_attribs: wglCreateContextAttribsARB_t = unsafe {
+        core::mem::transmute(wgl_get_proc_address(c_str!("wglCreateContextAttribsARB"))?)
+    };
+    let swap_interval: wglSwapIntervalEXT_t =
+        unsafe { core::mem::transmute(wgl_get_proc_address(c_str!("wglSwapIntervalEXT"))?) };
+
+    // Unbind the GL context from this thread
+    unsafe { wgl_make_current(ptr::null_mut(), ptr::null_mut()) }?;
+
+    Ok((
+        wgl_extensions,
+        choose_pixel_format,
+        create_context_attribs,
+        swap_interval,
+    ))
+}
+
 /// Load one of the predefined Windows cursors. If loading the cursor fails,
 /// `Err(Win32Error)` is returned.
 ///
@@ -543,6 +671,135 @@ pub unsafe fn unregister_class_by_name_wn(
 pub unsafe fn unregister_class_by_atom(a: ATOM, instance: HINSTANCE) -> Result<(), Win32Error> {
     let out = UnregisterClassW(a as LPCWSTR, instance);
     if out != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
+    }
+}
+
+/// Create an OpenGL 1.1 context.
+///
+/// ## Safety
+///
+/// - `hdc` must be a valid handle to a device context.
+///
+/// **See**: [`wglCreateContext()`]
+pub unsafe fn wgl_create_context(hdc: HDC) -> Result<HGLRC, Win32Error> {
+    let hglrc = wglCreateContext(hdc);
+    if hglrc.is_null() {
+        Err(get_last_error())
+    } else {
+        Ok(hglrc)
+    }
+}
+
+/// Deletes an OpenGL context.
+///
+/// ## Safety
+///
+/// - You **cannot** use this to delete a context currently in use in another thread.
+/// - You **can** use this to delete the current thread's context. The context will be made
+///   not-current automatically before it is deleted.
+/// - `hglrc` must be a valid handle to an OpenGL 1.1 context.
+///
+/// **See**: [`wglDeleteContext()`]
+pub unsafe fn wgl_delete_context(hglrc: HGLRC) -> Result<(), Win32Error> {
+    let success = wglDeleteContext(hglrc);
+    if success != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
+    }
+}
+
+/// Gets the WGL extension string for the HDC passed.
+///
+/// - This relies on [`wgl_get_proc_address`], so you must have a GL context current for it to work.
+/// - If [`wgl_get_proc_address`] fails, then an Application Error is generated.
+/// - If [`wgl_get_proc_address`] succeeds but the extension string can't be obtained for some other
+///   reason, a System Error will be generated.
+///
+/// The output is a space-seperated list of extensions that are supported.
+///
+/// ## Safety
+///
+/// - `hdc` must be a valid handle to a device context.
+///
+/// **See**:
+/// [`wglGetExtensionsStringARB`](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_extensions_string.txt)
+pub unsafe fn wgl_get_extension_string_arb(hdc: HDC) -> Result<String, Win32Error> {
+    let f: wglGetExtensionsStringARB_t =
+        core::mem::transmute(wgl_get_proc_address(c_str!("wglGetExtensionsStringARB"))?);
+
+    let p: *const u8 = (f.ok_or(Win32Error(Win32Error::APPLICATION_ERROR_BIT))?)(hdc).cast();
+
+    if p.is_null() {
+        Err(get_last_error())
+    } else {
+        let bytes = gather_null_terminated_bytes(p);
+        Ok(min_alloc_lossy_into_string(bytes))
+    }
+}
+
+/// Gets a OpenGL function address.
+///
+/// The input should be a null-terminated function name string. Use the [`c_str!`][`super::c_str!`]
+/// macro for assistance.
+///
+/// - You must always have an active GL context for this to work. Otherwise you will always get an
+///   error.
+/// - The GL function name is case sensitive, and spelling must be exact.
+/// - All outputs are context-specific. FUnctions supported in one rendering context are not
+///   necessarily supported in another.
+/// - The extension function addresses are unique for each pixel format. All rendering contexts of
+///   a given pixel format share the same extension function addresses.
+///
+/// This *will not* return function pointers exported by `OpenGL32.dll`, meaning that it won't
+/// return OpenGL 1.1 functions. For those old functions, use [`GetProcAddress`][msdn-getprocaddress].
+///
+/// ## Safety
+///
+/// Calling this function is not unneccessarily unsafe. However, using the pointer returned by this
+/// function _is_.
+///
+/// The result of this function is essentially a mutable null pointer pointing at some function
+/// in some binary somewhere. The arguments and return value can only be what you expect if the
+/// name you provide this function is correct. Remember to use [`core::mem::transmute()`] to case the
+/// pointer into a rust function pointer that you can actually call!
+///
+/// [msdn-getprocaddress]: https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getprocaddress
+pub fn wgl_get_proc_address(func_name: &[u8]) -> Result<PROC, Win32Error> {
+    // check that we end the slice with a \0 as expected
+    match func_name.last() {
+        Some(b'\0') => (),
+        _ => return Err(Win32Error(Win32Error::APPLICATION_ERROR_BIT)),
+    }
+
+    // Safety: we've already checked that teh end of the slice is null-terminated
+    let proc = unsafe { wglGetProcAddress(func_name.as_ptr().cast()) };
+
+    match proc as usize {
+        // Some non-zero values can also be errors,
+        // https://www.khronos.org/opengl/wiki/Load_OpenGL_Functions#Windows
+        0 | 1 | 2 | 3 | usize::MAX => Err(get_last_error()),
+
+        _ => Ok(proc),
+    }
+}
+
+/// Makes a given [`HGLRC`] current in the thread and targets it at the [`HDC`] given.
+///
+/// - You can safely pass [`ptr::null_mut()`] for both parameters if you wish to make no context
+///   current in the thread.
+///
+/// ## Safety
+///
+/// - Unless if both parameters are [`ptr::null_mut()`]:
+///   - `hdc` must be a valid handle to a device context
+///   - `hglrc` must be a valid handle to a OpenGL 1.1 context
+pub unsafe fn wgl_make_current(hdc: HDC, hglrc: HGLRC) -> Result<(), Win32Error> {
+    let success = wglMakeCurrent(hdc, hglrc);
+    if success != 0 {
         Ok(())
     } else {
         Err(get_last_error())

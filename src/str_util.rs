@@ -1,3 +1,19 @@
+/// Turns a Rust string slice into a null-terminated utf-16 vector.
+pub fn wide_null(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(Some(0)).collect()
+}
+
+/// Converts a `Vec<u8>` into a `String` using the minimum amount of re-allocation.
+///
+/// Specifically, the `Vec<u8>`'s data is moved into the `String` if (and only if) it already is
+/// valid UTF-8. Otherwise a new `String` is allocated and data is copied from the `Vec<u8>`.
+pub fn min_alloc_lossy_into_string(bytes: Vec<u8>) -> String {
+    match String::from_utf8(bytes) {
+        Ok(s) => s,
+        Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
+    }
+}
+
 /// Given a buffer of UTF-8 encoded bytes, break off one code point worth of bytes and return it
 /// along with the remaining bytes.
 ///
@@ -122,6 +138,17 @@ macro_rules! utf16_null {
         $crate::utf16!(
             __TRIANGLE_FROM_SCRATCH_STR_UTIL_UTF16_NULL_MACRO_A1B2C3D4_CONST_EVAL_LOOP_BREAK
         )
+    }};
+}
+
+/// Convert a UTF-8 rust string literal into a null-terminated `&[u8]`.
+///
+/// **Note**: This macro can only be passed string _literals_ (not variables or constants!) due to
+/// its internal use of [`concat`] to add a null byte to the end of the string.
+#[macro_export]
+macro_rules! c_str {
+    ($text:expr) => {{
+        concat!($text, '\0').as_bytes()
     }};
 }
 

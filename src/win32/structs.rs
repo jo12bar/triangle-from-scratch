@@ -337,6 +337,10 @@ impl Drop for OnDropLocalFree {
 #[repr(transparent)]
 pub struct Win32Error(pub DWORD);
 
+impl Win32Error {
+    pub const APPLICATION_ERROR_BIT: DWORD = 1 << 29;
+}
+
 impl fmt::Debug for Win32Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Win32Error")

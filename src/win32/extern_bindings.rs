@@ -45,6 +45,44 @@ extern "system" {
     pub fn SetLastError(dwErrCode: DWORD);
 }
 
+#[link(name = "Opengl32")]
+extern "system" {
+    /// See [`wglCreateContext` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglcreatecontext).
+    pub fn wglCreateContext(Arg1: HDC) -> HGLRC;
+
+    /// See [`wglDeleteContext` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wgldeletecontext).
+    pub fn wglDeleteContext(Arg1: HGLRC) -> BOOL;
+
+    /// See [`wglGetProcAddress` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglgetprocaddress).
+    pub fn wglGetProcAddress(Arg1: LPCSTR) -> PROC;
+
+    /// See [`wglMakeCurrent` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglmakecurrent).
+    pub fn wglMakeCurrent(hdc: HDC, hglrc: HGLRC) -> BOOL;
+}
+
+/// Type for [wglChoosePixelFormatARB](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_pixel_format.txt).
+pub type wglChoosePixelFormatARB_t = Option<
+    unsafe extern "system" fn(
+        hdc: HDC,
+        piAttribIList: *const c_int,
+        pfAttribFList: *const FLOAT,
+        nMaxFormats: UINT,
+        piFormats: *mut c_int,
+        nNumFormats: *mut UINT,
+    ) -> BOOL,
+>;
+
+/// Type for [wglCreateContextAttribsARB](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_create_context.txt).
+pub type wglCreateContextAttribsARB_t = Option<
+    unsafe extern "system" fn(hDC: HDC, hShareContext: HGLRC, attribList: *const c_int) -> HGLRC,
+>;
+
+/// Type for [`wglGetExtensionsStringARB`](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_extensions_string.txt).
+pub type wglGetExtensionsStringARB_t = Option<unsafe extern "system" fn(HDC) -> *const c_char>;
+
+/// Type for [wglSwapIntervalEXT](https://www.khronos.org/registry/OpenGL/extensions/EXT/WGL_EXT_swap_control.txt)
+pub type wglSwapIntervalEXT_t = Option<unsafe extern "system" fn(interval: c_int) -> BOOL>;
+
 #[link(name = "User32")]
 extern "system" {
     /// See [`BeginPaint` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-beginpaint).
