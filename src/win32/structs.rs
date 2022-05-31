@@ -221,6 +221,88 @@ pub type LPMSG = *mut MSG;
 
 unsafe_impl_default_zeroed! { MSG }
 
+/// Describes the pixel format of a drawing surface.
+///
+/// **See**: [MSDN](https://docs.microsoft.com/en-us/windows/win32/api/Wingdi/ns-wingdi-pixelformatdescriptor)
+#[repr(C)]
+#[derive(Clone, Debug)]
+pub struct PIXELFORMATDESCRIPTOR {
+    /// The size of this struct. Set this to `core::mem::size_of::<PIXELFORMATDESCRIPTOR>()`. Or
+    /// use this struct's [`Default::default()`] implementation, which sets this field properly for
+    /// you.
+    pub nSize: WORD,
+    /// The version of this struct. Set this to `1`. Or use this struct's [`Default::default()`] implementation,
+    /// which sets this field properly for you.
+    pub nVersion: WORD,
+    /// Bit flags that set properties of the pixel buffer. See MSDN for more information.
+    pub dwFlags: DWORD,
+    /// Specifies the type of pixel data. See MSDN for more information.
+    pub iPixelType: BYTE,
+    /// Specifies the number of color bitplanes in each color buffer. For RGBA pixel types, this
+    /// is the size of the color buffer excluding the alpha bitplanes. For color-index pixels, this
+    /// is the size of the color-index buffer.
+    pub cColorBits: BYTE,
+    /// Specifies the number of red bitplanes in the RGBA color buffer.
+    pub cRedBits: BYTE,
+    /// Specifies the shift count for red bitplanes in each RGBA color buffer.
+    pub cRedShift: BYTE,
+    /// Specifies the number of green bitplanes in the RGBA color buffer.
+    pub cGreenBits: BYTE,
+    /// Specifies the shift count for green bitplanes in each RGBA color buffer.
+    pub cGreenShift: BYTE,
+    /// Specifies the number of blue bitplanes in the RGBA color buffer.
+    pub cBlueBits: BYTE,
+    /// Specifies the shift count for blue bitplanes in each RGBA color buffer.
+    pub cBlueShift: BYTE,
+    /// Specifies the number of alpha bitplanes in the RGBA color buffer. **Alpha bitplanes are not supported.**
+    pub cAlphaBits: BYTE,
+    /// Specifies the shift count for alpha bitplanes in each RGBA color buffer. **Alpha bitplanes are not supported.**
+    pub cAlphaShift: BYTE,
+    /// Specifies the total number of bitplanes in the accumulation buffer.
+    pub cAccumBits: BYTE,
+    /// Specifies the number of red bitplanes in the accumulation buffer.
+    pub cAccumRedBits: BYTE,
+    /// Specifies the number of green bitplanes in the accumulation buffer.
+    pub cAccumGreenBits: BYTE,
+    /// Specifies the number of blue bitplanes in the accumulation buffer.
+    pub cAccumBlueBits: BYTE,
+    /// Specifies the number of alpha bitplanes in the accumulation buffer.
+    pub cAccumAlphaBits: BYTE,
+    /// Speciies the depth of the depth (z-axis) buffer.
+    pub cDepthBits: BYTE,
+    /// Specifies the depth of the stencil buffer.
+    pub cStencilBits: BYTE,
+    /// Specifies the number of auxilliary buffers. **Auxilliary buffers are not supported.**
+    pub cAuxBuffers: BYTE,
+    /// **Ignored**. Earlier implementations of OpenGL used this member, but it is no longer used.
+    pub iLayerType: BYTE,
+    /// Specifies the number of overlay and underlay planes.
+    ///
+    /// - Bits 0 through 3 specify up to 15 _overlay_ planes
+    /// - Bits 4 through 7 specify up to 15 _underlay_ planes
+    pub bReserved: BYTE,
+    /// **Ignored**. Earlier implementations of OpenGL used this member, but it is no longer used.
+    pub dwLayerMask: DWORD,
+    /// Specifies the transperent colour or index of an underlay plane. When the pixel type is RGBA,
+    /// `dwVisibleMask` is a transparent RGB color value. When the pixel type is a color index, it
+    /// is a transperent index value.
+    pub dwVisibleMask: DWORD,
+    /// **Ignored**. Earlier implementations of OpenGL used this member, but it is no longer used.
+    pub dwDamageMask: DWORD,
+}
+
+pub type PPIXELFORMATDESCRIPTOR = *mut PIXELFORMATDESCRIPTOR;
+pub type LPPIXELFORMATDESCRIPTOR = *mut PIXELFORMATDESCRIPTOR;
+
+impl Default for PIXELFORMATDESCRIPTOR {
+    fn default() -> Self {
+        let mut out: Self = unsafe { core::mem::MaybeUninit::<Self>::zeroed().assume_init() };
+        out.nSize = core::mem::size_of::<Self>() as WORD;
+        out.nVersion = 1;
+        out
+    }
+}
+
 /// Frees a local block of memory upon being dropped.
 #[derive(Debug)]
 pub struct OnDropLocalFree(HLOCAL);

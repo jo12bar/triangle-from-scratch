@@ -59,7 +59,7 @@ pub unsafe fn create_app_window(
         0,
         wide_null(class_name).as_ptr(),
         wide_null(window_name).as_ptr(),
-        WS_OVERLAPPEDWINDOW,
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
         x,
         y,
         width,
@@ -112,6 +112,71 @@ pub unsafe fn create_window_ex_w(
         Err(get_last_error())
     } else {
         Ok(hwnd)
+    }
+}
+
+/// Chooses a pixel format for a window. This is part of the process for enabling OpenGL rendering
+/// on a window.
+///
+/// ## Safety
+///
+/// - `hdc` must be a valid handle to a device context.
+/// - If `ppfd` isn't a valid [`PIXELFORMATDESCRIPTOR`], undefined behaviour may happen.
+///
+/// **See**: [`ChoosePixelFormat()`]
+pub unsafe fn choose_pixel_format(
+    hdc: HDC,
+    ppfd: &PIXELFORMATDESCRIPTOR,
+) -> Result<c_int, Win32Error> {
+    let index = ChoosePixelFormat(hdc, ppfd);
+    if index != 0 {
+        Ok(index)
+    } else {
+        Err(get_last_error())
+    }
+}
+
+/// Gets the pixel format info for a given pixel format index.
+///
+/// ## Safety
+///
+/// - `hdc` must be a valid handle to a DC.
+/// - `format` must be a valid pixel format index, not exceeding the maximum value returned by
+///   [`get_max_pixel_format_index()`].
+///
+/// **See**: [`DescribePixelFormat()`]
+pub unsafe fn describe_pixel_format(
+    hdc: HDC,
+    format: c_int,
+) -> Result<PIXELFORMATDESCRIPTOR, Win32Error> {
+    let mut pfd = PIXELFORMATDESCRIPTOR::default();
+    let max_index = DescribePixelFormat(
+        hdc,
+        format,
+        core::mem::size_of::<PIXELFORMATDESCRIPTOR>() as _,
+        &mut pfd,
+    );
+
+    if max_index == 0 {
+        Err(get_last_error())
+    } else {
+        Ok(pfd)
+    }
+}
+
+/// Destroys a window.
+///
+/// ## Safety
+///
+/// - `hwnd` must be a valid handle to a window.
+///
+/// **See**: [`DestroyWindow`]
+pub unsafe fn destroy_window(hwnd: HWND) -> Result<(), Win32Error> {
+    let destroyed = DestroyWindow(hwnd);
+    if destroyed != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
     }
 }
 
@@ -182,12 +247,63 @@ pub fn get_any_message() -> Result<MSG, Win32Error> {
     }
 }
 
+/// Gets a handle to a window's DC.
+///
+/// ## Safety
+///
+/// - `hwnd` must be a valid handle to a window.
+///
+/// **See**: [`GetDC()`], [`release_dc()`].
+pub unsafe fn get_dc(hwnd: HWND) -> Option<HDC> {
+    let hdc = GetDC(hwnd);
+    if hdc.is_null() {
+        None
+    } else {
+        Some(hdc)
+    }
+}
+
 /// Gets the thread-local last-error code value.
 ///
 /// See [`GetLastError`](https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror)
 pub fn get_last_error() -> Win32Error {
     // Safety: per MSDN, this should always work.
     Win32Error(unsafe { GetLastError() })
+}
+
+/// Gets the maximum pixel format index for the HDC.
+///
+/// Pixel format indexes are 1-based.
+///
+/// To print out info on all the pixel formats you'd do something like this:
+/// ```no_run
+/// # use triangle_from_scratch::win32::*;
+/// let hdc = todo!("create a window to get an HDC");
+/// let max = unsafe { get_max_pixel_format_index(hdc).unwrap() };
+/// for index in 1..=max {
+///   let pfd = unsafe { describe_pixel_format(hdc, index).unwrap() };
+///   todo!("print the pfd info you want to know");
+/// }
+/// ```
+///
+/// ## Safety
+///
+/// - `hdc` must be a valid handle to a DC.
+///
+/// **See**: [`describe_pixel_format()`]
+pub unsafe fn get_max_pixel_format_index(hdc: HDC) -> Result<c_int, Win32Error> {
+    let max_index = DescribePixelFormat(
+        hdc,
+        1,
+        core::mem::size_of::<PIXELFORMATDESCRIPTOR>() as _,
+        ptr::null_mut(),
+    );
+
+    if max_index == 0 {
+        Err(get_last_error())
+    } else {
+        Ok(max_index)
+    }
 }
 
 /// Returns a handle to the file used to create the calling process (.exe file).
@@ -268,11 +384,52 @@ pub unsafe fn register_class(window_class: &WNDCLASSW) -> Result<ATOM, Win32Erro
     }
 }
 
-/// Sets the thread-local last-error code value.
+/// Releases a handle to a window's DC. Returns the result of attempting to release the handle;
+/// `true` if successful, and `false` otherwise.
+///
+/// ## Safety
+///
+/// - `hwnd` must be a valid handle to a window.
+/// - `hdc` must be a valid handle to a DC owned by the window that `hdc` points to.
+///
+/// **See**: [`ReleaseDC()`], [`get_dc()`]
+#[must_use]
+pub unsafe fn release_dc(hwnd: HWND, hdc: HDC) -> bool {
+    let was_released = ReleaseDC(hwnd, hdc);
+    was_released != 0
+}
+
 ///
 /// See [`SetLastError`](https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-setlasterror)
 pub fn set_last_error(e: Win32Error) {
     unsafe { SetLastError(e.0) }
+}
+
+/// Sets the pixel format of a window and its device context.
+///
+/// ## Safety
+///
+/// - `hdc` must be a valid pointer to a device context. If this is a window's DC, then the pixel
+///   format of the window will be set.
+/// - `format` must be a valid pixel format index generated by, e.g., [`choose_pixel_format()`].
+/// - `ppfd` must be a valid [`PIXELFORMATDESCRIPTOR`].
+/// - You can't set a window's pixel format more than once, so don't try to do that.
+/// - Call this *before* creating an OpenGL context.
+/// - OpenGL windows should use [`WS_CLIPCHILDREN`] and [`WS_CLIPSIBLINGS`].
+/// - OpenGL windows should _not_ use `CS_PARENTDC`.
+///
+/// **See**: [`SetPixelFormat()`], [`choose_pixel_format()`].
+pub unsafe fn set_pixel_format(
+    hdc: HDC,
+    format: c_int,
+    ppfd: &PIXELFORMATDESCRIPTOR,
+) -> Result<(), Win32Error> {
+    let success = SetPixelFormat(hdc, format, ppfd);
+    if success != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
+    }
 }
 
 /// Sets the "userdata" pointer of the window (`GWLP_USERDATA`).
@@ -324,4 +481,70 @@ pub unsafe fn set_window_userdata<T>(hwnd: HWND, ptr: *mut T) -> Result<*mut T, 
 pub fn translate_message(msg: &MSG) -> bool {
     // Safety: TranslateMessage can't really go wrong, assuming `msg` is valid
     0 != unsafe { TranslateMessage(msg) }
+}
+
+/// Un-registers the window class from the [`HINSTANCE`] given.
+///
+/// - The name must be the name of a registered window class.
+/// - This requires re-encoding the name to a null-terminated UTF-16 string, which allocates.
+///   There are some alternatives to this function that avoid allocation:
+///   - If you have the atom returned by [`register_class()`], use [`unregister_class_by_atom()`]
+///     instead.
+///   - If you already have the window class name encoded as a null-terminated UTF-16 string, then
+///     use [`unregister_class_by_name_wn()`].
+/// - Before calling this function, an application must destroy all windows created with the
+///   specified class.
+///
+/// ## Safety
+///
+/// - `instance` must be a valid [`HINSTANCE`].
+///
+/// **See**: [`UnregisterClassW()`]
+pub unsafe fn unregister_class_by_name(name: &str, instance: HINSTANCE) -> Result<(), Win32Error> {
+    let name_null = wide_null(name);
+    unregister_class_by_name_wn(&name_null, instance)
+}
+
+/// Un-registers the window class from the [`HINSTANCE`] given.
+///
+/// - The name must be the name of a registered window class.
+/// - Before calling this function, an application must destroy all windows created with the
+///   specified class.
+///
+/// ## Safety
+///
+/// - `name_wn` must be a null-terminated UTF-16 string.
+/// - `instance` must be a valid [`HINSTANCE`].
+///
+/// **See**: [`UnregisterClassW()`]
+pub unsafe fn unregister_class_by_name_wn(
+    name_wn: &[u16],
+    instance: HINSTANCE,
+) -> Result<(), Win32Error> {
+    let out = UnregisterClassW(name_wn.as_ptr(), instance);
+    if out != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
+    }
+}
+
+/// Un-registers the window class from the [`HINSTANCE`] given.
+///
+/// - The atom must be the atom of a registered window class.
+/// - Before calling this function, an application must destroy all windows created with the
+///   specified class.
+///
+/// ## Safety
+///
+/// - `instance` must be a valid [`HINSTANCE`].
+///
+/// **See**: [`UnregisterClassW()`]
+pub unsafe fn unregister_class_by_atom(a: ATOM, instance: HINSTANCE) -> Result<(), Win32Error> {
+    let out = UnregisterClassW(a as LPCWSTR, instance);
+    if out != 0 {
+        Ok(())
+    } else {
+        Err(get_last_error())
+    }
 }

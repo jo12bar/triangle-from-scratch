@@ -2,6 +2,23 @@
 
 use super::{structs::*, typedefs::*};
 
+#[link(name = "Gdi32")]
+extern "system" {
+    /// See [`ChoosePixelFormat` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-choosepixelformat).
+    pub fn ChoosePixelFormat(hdc: HDC, ppfd: *const PIXELFORMATDESCRIPTOR) -> c_int;
+
+    // See [`DescribePixelFormat` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-describepixelformat).
+    pub fn DescribePixelFormat(
+        hdc: HDC,
+        iPixelFormat: c_int,
+        nBytes: c_uint,
+        ppfd: LPPIXELFORMATDESCRIPTOR,
+    ) -> c_int;
+
+    /// See [`SetPixelFormat` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-setpixelformat).
+    pub fn SetPixelFormat(hdc: HDC, format: c_int, ppfd: *const PIXELFORMATDESCRIPTOR) -> BOOL;
+}
+
 #[link(name = "Kernel32")]
 extern "system" {
     /// See [`FormatMessageW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessagew).
@@ -64,6 +81,9 @@ extern "system" {
     /// See [`FillRect` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-fillrect).
     pub fn FillRect(hDC: HDC, lprc: *const RECT, hbr: HBRUSH) -> c_int;
 
+    /// See [`GetDC` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdc).
+    pub fn GetDC(hWnd: HWND) -> HDC;
+
     /// See [`GetMessageW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getmessagew).
     pub fn GetMessageW(lpMsg: LPMSG, hWnd: HWND, wMsgFilterMin: UINT, wMsgFilterMax: UINT) -> BOOL;
 
@@ -82,6 +102,9 @@ extern "system" {
     /// See [`RegisterClassW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassw).
     pub fn RegisterClassW(lpWndClass: *const WNDCLASSW) -> ATOM;
 
+    /// See [`ReleaseDC` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-releasedc).
+    pub fn ReleaseDC(hWnd: HWND, hDC: HDC) -> c_int;
+
     /// See [`SetWindowLongPtrW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowlongptrw).
     pub fn SetWindowLongPtrW(hWnd: HWND, nIndex: c_int, dwNewLong: LONG_PTR) -> LONG_PTR;
 
@@ -90,4 +113,7 @@ extern "system" {
 
     /// See [`TranslateMessage` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-translatemessage).
     pub fn TranslateMessage(lpMsg: *const MSG) -> BOOL;
+
+    /// See [`UnregisterClassW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unregisterclassw).
+    pub fn UnregisterClassW(lpClassName: LPCWSTR, hInstance: HINSTANCE) -> BOOL;
 }

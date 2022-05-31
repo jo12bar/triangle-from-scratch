@@ -148,7 +148,7 @@ pub const FORMAT_MESSAGE_FROM_SYSTEM: DWORD = 0x0000_1000;
 /// [msdn-format-message-w]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessagew
 pub const FORMAT_MESSAGE_IGNORE_INSERTS: DWORD = 0x0000_0200;
 
-/// For use with [`SetWindowLongPtrW()`].
+/// For use with [`super::SetWindowLongPtrW()`].
 ///
 /// [From MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowlongptrw#parameters):
 ///
@@ -162,10 +162,148 @@ pub const IDOK: c_int = 1;
 /// Display "Ok" and "Cancel" buttons on a message box.
 pub const MB_OKCANCEL: u32 = 1;
 
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// Allows the buffer to draw to a window or device surface.
+pub const PFD_DRAW_TO_WINDOW: DWORD = 0x0000_0004;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// Allows the buffer to draw to a memory map.
+pub const PFD_DRAW_TO_BITMAP: DWORD = 0x0000_0008;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// The buffer supports GDI drawing.
+/// This flag and [`PFD_DOUBLEBUFFER`] are mutually exclusive in the current generic implementation.
+pub const PFD_SUPPORT_GDI: DWORD = 0x0000_0010;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// This buffer supports OpenGL drawing.
+pub const PFD_SUPPORT_OPENGL: DWORD = 0x0000_0020;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// The pixel format is supported by a device driver that accelerates the generic implementation.
+/// If this flag is clear and the [`PFD_GENERIC_FORMAT`] flag is set, the pixel format is supported
+/// by the generic implementation only.
+pub const PFD_GENERIC_ACCELERATED: DWORD = 0x0000_1000;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// The pixel format is supported by the GDI software implementation, which is also known as the
+/// generic implementation. If this bit is clear, the pixel format is supported by a device driver
+/// or hardware.
+pub const PFD_GENERIC_FORMAT: DWORD = 0x0000_0040;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// The buffer uses RGBA pixels on a palette-managed device. A logical palette is required to
+/// achieve the best results for this pixel type. Colors in the palette should be specified
+/// according to the values of the [`cRedBits`][`super::PIXELFORMATDESCRIPTOR::cRedBits`],
+/// [`cRedShift`][`super::PIXELFORMATDESCRIPTOR::cRedShift`], [`cGreenBits`][`super::PIXELFORMATDESCRIPTOR::cGreenBits`],
+/// [`cGreenShift`][`super::PIXELFORMATDESCRIPTOR::cGreenShift`], [`cBlueBits`][`super::PIXELFORMATDESCRIPTOR::cBlueBits`],
+/// and [`cBlueShift`][`super::PIXELFORMATDESCRIPTOR::cBlueShift`] members. The palette should be
+/// created and realized in the device context before calling
+/// [`wglMakeCurrent`](https://docs.microsoft.com/en-us/windows/desktop/api/wingdi/nf-wingdi-wglmakecurrent).
+pub const PFD_NEED_PALETTE: DWORD = 0x0000_0080;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// Defined in the pixel format descriptors of hardware that supports one hardware palette in
+/// 256-color mode only. For such systems to use hardware acceleration, the hardware palette must be
+/// in a fixed order (for example, 3-3-2) when in RGBA mode or must match the logical palette when
+/// in color-index mode. When this flag is set, you must call `SetSystemPaletteUse` in your program
+/// to force a one-to-one mapping of the logical palette and the system palette. If your OpenGL
+/// hardware supports multiple hardware palettes and the device driver can allocate spare hardware
+/// palettes for OpenGL, this flag is typically clear.
+///
+/// This flag is not set in the generic pixel formats.
+pub const PFD_NEED_SYSTEM_PALETTE: DWORD = 0x0000_0100;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// The buffer is double-buffered. This flag and [`PFD_SUPPORT_GDI`] are mutually exclusive in the
+/// current generic implementation.
+pub const PFD_DOUBLEBUFFER: DWORD = 0x0000_0001;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// The buffer is stereoscopic. This flag is not supported in the current generic implementation.
+pub const PFD_STEREO: DWORD = 0x0000_0002;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// Indicates whether a device can swap individual layer planes with pixel formats that include
+/// double-buffered overlay or underlay planes. Otherwise all layer planes are swapped together as
+/// a group. When this flag is set, wglSwapLayerBuffers is supported.
+pub const PFD_SWAP_LAYER_BUFFERS: DWORD = 0x0000_0800;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// Use when calling [`super::ChoosePixelFormat`].
+///
+/// > The requested pixel format can either have or not have a depth buffer. To select a pixel
+/// > format without a depth buffer, you must specify this flag. The requested pixel format can be
+/// > with or without a depth buffer. Otherwise, only pixel formats with a depth buffer are considered.
+pub const PFD_DEPTH_DONTCARE: DWORD = 0x2000_0000;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// Use when calling [`super::ChoosePixelFormat`].
+///
+/// > The requested pixel format can be either single- or double-buffered.
+pub const PFD_DOUBLEBUFFER_DONTCARE: DWORD = 0x4000_0000;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// Use when calling [`super::ChoosePixelFormat`].
+///
+/// > The requested pixel format can be either monoscopic or stereoscopic.
+pub const PFD_STEREO_DONTCARE: DWORD = 0x8000_0000;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// Only valid if the `glAddSwapHintRectWIN` extension function is available.
+///
+/// > Specifies the content of the back buffer in the double-buffered main color plane following a
+/// > buffer swap. Swapping the color buffers causes the content of the back buffer to be copied to
+/// > the front buffer. The content of the back buffer is not affected by the swap. PFD_SWAP_COPY is
+/// > a hint only and might not be provided by a driver.
+pub const PFD_SWAP_COPY: DWORD = 0x0000_0400;
+
+/// A [`PIXELFORMATDESCRIPTOR` flag][`super::PIXELFORMATDESCRIPTOR::dwFlags`].
+/// Only valid if the `glAddSwapHintRectWIN` extension function is available.
+///
+/// > Specifies the content of the back buffer in the double-buffered main color plane following a
+/// > buffer swap. Swapping the color buffers causes the exchange of the back buffer's content with
+/// > the front buffer's content. Following the swap, the back buffer's content contains the front
+/// > buffer's content before the swap. PFD_SWAP_EXCHANGE is a hint only and might not be provided
+/// > by a driver.
+pub const PFD_SWAP_EXCHANGE: DWORD = 0x0000_0200;
+
+/// A [`PIXELFORMATDESCRIPTOR` pixel data type][`super::PIXELFORMATDESCRIPTOR::iPixelType`].
+/// Chooses RGBA pixels. Each pixel in this set has four components: red, green, blue, and alpha.
+pub const PFD_TYPE_RGBA: BYTE = 0;
+
+/// A [`PIXELFORMATDESCRIPTOR` pixel data type][`super::PIXELFORMATDESCRIPTOR::iPixelType`].
+/// Chooses color-index pixels. Each pixel uses a color-index value.
+pub const PFD_TYPE_COLORINDEX: BYTE = 1;
+
+/// A [`PIXELFORMATDESCRIPTOR` layer type][`super::PIXELFORMATDESCRIPTOR::iLayerType`].
+pub const PFD_MAIN_PLANE: BYTE = 0;
+/// A [`PIXELFORMATDESCRIPTOR` layer type][`super::PIXELFORMATDESCRIPTOR::iLayerType`].
+pub const PFD_OVERLAY_PLANE: BYTE = 1;
+/// A [`PIXELFORMATDESCRIPTOR` layer type][`super::PIXELFORMATDESCRIPTOR::iLayerType`].
+pub const PFD_UNDERLAY_PLANE: BYTE = u8::MAX; // was (-1) in the windows headers
+
 pub const SW_SHOW: c_int = 5;
 
 pub const WS_OVERLAPPED: u32 = 0x00000000;
 pub const WS_CAPTION: u32 = 0x00C00000;
+
+/// Excludes the area occupied by child windows when drawing occurs within the
+/// parent window.
+///
+/// This style is used when creating the parent window.
+pub const WS_CLIPCHILDREN: u32 = 0x02000000;
+
+/// Clips child windows relative to each other.
+///
+/// That is, when a particular child window receives a WM_PAINT message,
+/// the WS_CLIPSIBLINGS style clips all other overlapping child windows out of
+/// the region of the child window to be updated. If WS_CLIPSIBLINGS is not
+/// specified and child windows overlap, it is possible, when drawing within the
+/// client area of a child window, to draw within the client area of a
+/// neighboring child window.
+pub const WS_CLIPSIBLINGS: u32 = 0x04000000;
+
 pub const WS_SYSMENU: u32 = 0x00080000;
 pub const WS_THICKFRAME: u32 = 0x00040000;
 pub const WS_MINIMIZEBOX: u32 = 0x00020000;
