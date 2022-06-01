@@ -54,6 +54,9 @@ pub type c_ushort = u16;
 /// ```
 pub type DWORD = c_ulong;
 
+/// Pointer to a procedure of unknown type.
+pub type FARPROC = *mut core::ffi::c_void;
+
 /// Win32 float definition
 pub type FLOAT = c_float;
 

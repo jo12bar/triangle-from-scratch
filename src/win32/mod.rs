@@ -199,6 +199,107 @@ where
     output
 }
 
+/// Arranges data for calling a [`wglChoosePixelFormatARB_t`] procedure, and calls it.
+///
+/// - Inputs are slices of `[key, value]` pairs.
+/// - Input slices **can** be empty.
+/// - Non-empty slices must have a zero value in the key position of the final pair.
+///
+/// ## Safety
+///
+/// - `f` must be a valid nullable pointer to the `wglChoosePixelFormatARB` function.
+/// - `hdc` must be a valid handle to a device context.
+pub unsafe fn do_wgl_choose_pixel_format_arb(
+    f: wglChoosePixelFormatARB_t,
+    hdc: HDC,
+    int_attrs: &[[c_int; 2]],
+    float_attrs: &[[FLOAT; 2]],
+) -> Result<c_int, Win32Error> {
+    const APP_ERR: Win32Error = Win32Error(Win32Error::APPLICATION_ERROR_BIT);
+
+    let i_ptr = match int_attrs.last() {
+        Some([k, _v]) => {
+            if *k == 0 {
+                int_attrs.as_ptr()
+            } else {
+                return Err(APP_ERR);
+            }
+        }
+
+        None => ptr::null(),
+    };
+
+    let f_ptr = match float_attrs.last() {
+        Some([k, _v]) => {
+            if *k == 0.0 {
+                float_attrs.as_ptr()
+            } else {
+                return Err(APP_ERR);
+            }
+        }
+
+        None => ptr::null(),
+    };
+
+    let mut out_format = 0;
+    let mut out_format_count = 0;
+
+    let b = (f.ok_or(APP_ERR)?)(
+        hdc,
+        i_ptr.cast(),
+        f_ptr.cast(),
+        1,
+        &mut out_format,
+        &mut out_format_count,
+    );
+
+    if b != 0 && out_format_count == 1 {
+        Ok(out_format)
+    } else {
+        Err(get_last_error())
+    }
+}
+
+/// Arranges data for calling a [`wglCreateContextAttribsARB_t`] procedure, and calls it.
+///
+/// - The input slice consists of [key, value] pairs.
+/// - The input slice **can** be empty.
+/// - Any non-empty input must have zero as the key value of the last position.
+///
+/// ## Safety
+///
+/// - `f` must be a valid nullable pointer to the `wglChoosePixelFormatARB` function.
+/// - `hdc` must be a valid handle to a device context.
+/// - `hshare_context` must be a valid handle to a GL context.
+///
+/// **See**: [`WGL_ARB_create_context`](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_create_context.txt)
+pub unsafe fn do_wgl_create_context_attribs_arb(
+    f: wglCreateContextAttribsARB_t,
+    hdc: HDC,
+    hshare_context: HGLRC,
+    attribList: &[[i32; 2]],
+) -> Result<HGLRC, Win32Error> {
+    const APP_ERR: Win32Error = Win32Error(Win32Error::APPLICATION_ERROR_BIT);
+    let i_ptr = match attribList.last() {
+        Some([k, _v]) => {
+            if *k == 0 {
+                attribList.as_ptr()
+            } else {
+                return Err(APP_ERR);
+            }
+        }
+
+        None => ptr::null(),
+    };
+
+    let hglrc = (f.ok_or(APP_ERR)?)(hdc, hshare_context, i_ptr.cast());
+    if hglrc.is_null() {
+        Err(get_last_error())
+    } else {
+        Ok(hglrc)
+    }
+}
+
 /// **See:** [`EndPaint`](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-endpaint)
 ///
 /// ## Safety
@@ -470,6 +571,30 @@ pub fn get_wgl_basics() -> Result<
         create_context_attribs,
         swap_interval,
     ))
+}
+
+/// Load a dynamic library.
+///
+/// Use [`FreeLibrary`] to unload the library, and [`GetProcAddress`] to get the addresses of
+/// symbols in the library.
+///
+/// See [MSDN's documentation for `LoadLibraryW`][msdn-loader-doc] for details of how to specify
+/// library names/locations, and how to influence the library search strategy.
+///
+/// **See**: [`LoadLibraryW`]
+///
+/// [msdn-loader-doc]: https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryw
+pub fn load_library(name: &str) -> Result<HMODULE, Win32Error> {
+    let name_wn = wide_null(name);
+
+    // Safety: The input pointer is guaranteed to be a null-terminated UTF-16 string
+    let hmodule = unsafe { LoadLibraryW(name_wn.as_ptr()) };
+
+    if hmodule.is_null() {
+        Err(get_last_error())
+    } else {
+        Ok(hmodule)
+    }
 }
 
 /// Load one of the predefined Windows cursors. If loading the cursor fails,

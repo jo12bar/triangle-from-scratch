@@ -3,6 +3,8 @@
 // the release profile).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use core::ptr;
+
 use triangle_from_scratch::{utf16_null, win32::*};
 
 const WINDOW_CLASS: &str = "Sample Window Class";
@@ -39,30 +41,103 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (wgl_extensions, wgl_choose_pixel_format, wgl_create_context_attribs, wgl_swap_interval) =
         get_wgl_basics()?;
 
-    println!("WGL Extensions: {:?}", wgl_extensions);
-    println!("> wglChoosePixelFormatARB --> {:?}", unsafe {
-        core::mem::transmute::<wglChoosePixelFormatARB_t, *mut core::ffi::c_void>(
-            wgl_choose_pixel_format,
-        )
-    });
-    println!("> wglCreateContextAttribsARB --> {:?}", unsafe {
-        core::mem::transmute::<wglCreateContextAttribsARB_t, *mut core::ffi::c_void>(
-            wgl_create_context_attribs,
-        )
-    });
-    println!("> wglSwapIntervalEXT --> {:?}", unsafe {
-        core::mem::transmute::<wglSwapIntervalEXT_t, *mut core::ffi::c_void>(wgl_swap_interval)
-    });
-
     // This is data to pass to the window, which the window procedure can handle in its WM_CREATE
     // or WM_NCCREATE message handlers.
     // Note that we intentionally Box::leak the data - it should be cleaned up by the window procedure
     // in is WM_DESTROY message handler.
-    let lparam: *mut i32 = Box::leak(Box::new(5_i32));
+    let lparam: *mut WindowData = Box::leak(Box::new(WindowData::default()));
 
     let hwnd =
-        unsafe { create_app_window(WINDOW_CLASS, WINDOW_NAME, None, [600, 400], lparam.cast())? };
+        unsafe { create_app_window(WINDOW_CLASS, WINDOW_NAME, None, [800, 600], lparam.cast())? };
 
+    // Bind a handle to the window's device context to the WindowData attached to the window.
+    let hdc = unsafe { get_dc(hwnd) }.unwrap();
+    unsafe { (*lparam).hdc = hdc };
+
+    // Set the pixel format for the window.
+    //
+    // First, define some base criteria:
+    let mut pf_int_attribs = vec![
+        [WGL_DRAW_TO_WINDOW_ARB, true as _],
+        [WGL_SUPPORT_OPENGL_ARB, true as _],
+        [WGL_DOUBLE_BUFFER_ARB, true as _],
+        [WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB],
+        [WGL_COLOR_BITS_ARB, 32],
+        [WGL_DEPTH_BITS_ARB, 24],
+        [WGL_STENCIL_BITS_ARB, 8],
+    ];
+
+    // Additional extensions that may or may not exist:
+    for ext in wgl_extensions.iter() {
+        match ext.as_str() {
+            // if sRGB is supported, ask for that
+            "WGL_EXT_framebuffer_sRGB" => {
+                pf_int_attribs.push([WGL_FRAMEBUFFER_SRGB_CAPABLE_EXT, true as _]);
+            }
+
+            // enable multisampling if possible
+            "WGL_ARB_multisample" => {
+                pf_int_attribs.push([WGL_SAMPLE_BUFFERS_ARB, 1]);
+            }
+
+            _ => {}
+        }
+    }
+
+    // Finalize the list of requested pixel format attributes
+    pf_int_attribs.push([0, 0]);
+
+    // Choose the pixel format, get the PIXELFORMATDESCRIPTOR, and set it
+    let pix_format = unsafe {
+        do_wgl_choose_pixel_format_arb(wgl_choose_pixel_format, hdc, &pf_int_attribs, &[])
+    }?;
+    let pfd = unsafe { describe_pixel_format(hdc, pix_format) }?;
+    unsafe { set_pixel_format(hdc, pix_format, &pfd) }?;
+
+    // Now, create a OpenGL 3.3 Core context, and give it to our window procedure for later use.
+    const OPENGL_CONTEXT_FLAGS: c_int = WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
+        | if cfg!(debug_assertions) {
+            WGL_CONTEXT_DEBUG_BIT_ARB
+        } else {
+            0
+        };
+
+    let hglrc = unsafe {
+        do_wgl_create_context_attribs_arb(
+            wgl_create_context_attribs,
+            hdc,
+            ptr::null_mut(),
+            &[
+                [WGL_CONTEXT_MAJOR_VERSION_ARB, 3],
+                [WGL_CONTEXT_MINOR_VERSION_ARB, 3], // opengl 3.3
+                [
+                    WGL_CONTEXT_PROFILE_MASK_ARB,
+                    WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+                ], // core profile
+                [WGL_CONTEXT_FLAGS_ARB, OPENGL_CONTEXT_FLAGS],
+                [0, 0],
+            ],
+        )
+    }?;
+
+    unsafe { wgl_make_current(hdc, hglrc) }?;
+    unsafe { (*lparam).hglrc = hglrc };
+
+    // Load the OpenGL DLL, and give the window procedure a handle to it.
+    let lib_opengl32 = load_library("opengl32.dll")?;
+    unsafe { (*lparam).lib_opengl32 = lib_opengl32 };
+
+    // Enable "adaptive" vsync if possible, otherwise normal vsync
+    if wgl_extensions
+        .iter()
+        .any(|s| s == "WGL_EXT_swap_control_tear")
+    {
+        unsafe { (wgl_swap_interval.unwrap())(-1) };
+    } else {
+        unsafe { (wgl_swap_interval.unwrap())(1) };
+    }
+
+    // Show the window.
     let _previously_visible = unsafe { ShowWindow(hwnd, SW_SHOW) };
 
     loop {
@@ -81,6 +156,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Err(e) => panic!("Error when fetching from message queue: {e}"),
         }
+    }
+}
+
+/// Data to be stored in the window procedure's state.
+struct WindowData {
+    hdc: HDC,
+    hglrc: HGLRC,
+    lib_opengl32: HMODULE,
+}
+
+/// Zeros out all members of this structure.
+impl Default for WindowData {
+    fn default() -> Self {
+        unsafe { core::mem::MaybeUninit::zeroed().assume_init() }
     }
 }
 
@@ -127,10 +216,10 @@ pub unsafe extern "system" fn window_procedure(
 
         // Paint the window's client area.
         WM_PAINT => {
-            match get_window_userdata::<i32>(hwnd) {
+            match get_window_userdata::<WindowData>(hwnd) {
                 Ok(ptr) if !ptr.is_null() => {
-                    println!("Current ptr: {}", *ptr);
-                    *ptr += 1;
+                    println!("painting! hdc: {:?}", (*ptr).hdc);
+                    // TODO: Real painting, eventually
                 }
 
                 Ok(_) => {
@@ -157,10 +246,19 @@ pub unsafe extern "system" fn window_procedure(
         // Tell the system the application quit upon window class destruction.
         WM_DESTROY => {
             // Remember to clean up application state upon destruction!
-            match get_window_userdata::<i32>(hwnd) {
+            match get_window_userdata::<WindowData>(hwnd) {
                 Ok(ptr) if !ptr.is_null() => {
-                    Box::from_raw(ptr); // by not saving the box, it immediately gets dropped and the
-                                        // application state deallocated.
+                    let window_data = Box::from_raw(ptr);
+
+                    FreeLibrary(window_data.lib_opengl32);
+
+                    wgl_delete_context(window_data.hglrc)
+                        .unwrap_or_else(|e| eprintln!("GL context deletion error: {e}"));
+
+                    if !release_dc(hwnd, window_data.hdc) {
+                        eprintln!("Unable to release device context.");
+                    }
+
                     println!("Deallocated application state!");
                 }
 

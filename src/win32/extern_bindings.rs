@@ -32,11 +32,20 @@ extern "system" {
         Arguments: va_list,
     ) -> DWORD;
 
+    /// See [`FreeLibrary` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-freelibrary).
+    pub fn FreeLibrary(hLibModule: HMODULE) -> BOOL;
+
     /// See [`GetLastError` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror).
     pub fn GetLastError() -> DWORD;
 
     /// See [`GetModuleHandleW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandlew).
     pub fn GetModuleHandleW(lpModuleName: LPCWSTR) -> HMODULE;
+
+    /// See [`GetProcAddress` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getprocaddress).
+    pub fn GetProcAddress(hModule: HMODULE, lpProcName: LPCSTR) -> FARPROC;
+
+    /// See [`LoadLibraryW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryw).
+    pub fn LoadLibraryW(lpLibFileName: LPCWSTR) -> HMODULE;
 
     /// See [`LocalFree` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-localfree).
     pub fn LocalFree(hMem: HLOCAL) -> HLOCAL;

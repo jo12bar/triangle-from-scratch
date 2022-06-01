@@ -325,6 +325,115 @@ pub const WM_PAINT: u32 = 0x000F;
 /// Indicates a request to termiante the application.
 pub const WM_QUIT: u32 = 0x0012;
 
+pub use wgl_pixel_format::*;
+/// Base constants for use with the [`WGL_ARB_pixel_format`](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_pixel_format.txt)
+/// extension.
+pub mod wgl_pixel_format {
+    pub const WGL_NUMBER_PIXEL_FORMATS_ARB: super::c_int = 0x2000;
+    pub const WGL_DRAW_TO_WINDOW_ARB: super::c_int = 0x2001;
+    pub const WGL_DRAW_TO_BITMAP_ARB: super::c_int = 0x2002;
+    pub const WGL_ACCELERATION_ARB: super::c_int = 0x2003;
+    pub const WGL_NEED_PALETTE_ARB: super::c_int = 0x2004;
+    pub const WGL_NEED_SYSTEM_PALETTE_ARB: super::c_int = 0x2005;
+    pub const WGL_SWAP_LAYER_BUFFERS_ARB: super::c_int = 0x2006;
+    pub const WGL_SWAP_METHOD_ARB: super::c_int = 0x2007;
+    pub const WGL_NUMBER_OVERLAYS_ARB: super::c_int = 0x2008;
+    pub const WGL_NUMBER_UNDERLAYS_ARB: super::c_int = 0x2009;
+    pub const WGL_TRANSPARENT_ARB: super::c_int = 0x200A;
+    pub const WGL_TRANSPARENT_RED_VALUE_ARB: super::c_int = 0x2037;
+    pub const WGL_TRANSPARENT_GREEN_VALUE_ARB: super::c_int = 0x2038;
+    pub const WGL_TRANSPARENT_BLUE_VALUE_ARB: super::c_int = 0x2039;
+    pub const WGL_TRANSPARENT_ALPHA_VALUE_ARB: super::c_int = 0x203A;
+    pub const WGL_TRANSPARENT_INDEX_VALUE_ARB: super::c_int = 0x203B;
+    pub const WGL_SHARE_DEPTH_ARB: super::c_int = 0x200C;
+    pub const WGL_SHARE_STENCIL_ARB: super::c_int = 0x200D;
+    pub const WGL_SHARE_ACCUM_ARB: super::c_int = 0x200E;
+    pub const WGL_SUPPORT_GDI_ARB: super::c_int = 0x200F;
+    pub const WGL_SUPPORT_OPENGL_ARB: super::c_int = 0x2010;
+    pub const WGL_DOUBLE_BUFFER_ARB: super::c_int = 0x2011;
+    pub const WGL_STEREO_ARB: super::c_int = 0x2012;
+    pub const WGL_PIXEL_TYPE_ARB: super::c_int = 0x2013;
+    pub const WGL_COLOR_BITS_ARB: super::c_int = 0x2014;
+    pub const WGL_RED_BITS_ARB: super::c_int = 0x2015;
+    pub const WGL_RED_SHIFT_ARB: super::c_int = 0x2016;
+    pub const WGL_GREEN_BITS_ARB: super::c_int = 0x2017;
+    pub const WGL_GREEN_SHIFT_ARB: super::c_int = 0x2018;
+    pub const WGL_BLUE_BITS_ARB: super::c_int = 0x2019;
+    pub const WGL_BLUE_SHIFT_ARB: super::c_int = 0x201A;
+    pub const WGL_ALPHA_BITS_ARB: super::c_int = 0x201B;
+    pub const WGL_ALPHA_SHIFT_ARB: super::c_int = 0x201C;
+    pub const WGL_ACCUM_BITS_ARB: super::c_int = 0x201D;
+    pub const WGL_ACCUM_RED_BITS_ARB: super::c_int = 0x201E;
+    pub const WGL_ACCUM_GREEN_BITS_ARB: super::c_int = 0x201F;
+    pub const WGL_ACCUM_BLUE_BITS_ARB: super::c_int = 0x2020;
+    pub const WGL_ACCUM_ALPHA_BITS_ARB: super::c_int = 0x2021;
+    pub const WGL_DEPTH_BITS_ARB: super::c_int = 0x2022;
+    pub const WGL_STENCIL_BITS_ARB: super::c_int = 0x2023;
+    pub const WGL_AUX_BUFFERS_ARB: super::c_int = 0x2024;
+    pub const WGL_NO_ACCELERATION_ARB: super::c_int = 0x2025;
+    pub const WGL_GENERIC_ACCELERATION_ARB: super::c_int = 0x2026;
+    pub const WGL_FULL_ACCELERATION_ARB: super::c_int = 0x2027;
+
+    pub const WGL_SWAP_EXCHANGE_ARB: super::c_int = 0x2028;
+    pub const WGL_SWAP_COPY_ARB: super::c_int = 0x2029;
+    pub const WGL_SWAP_UNDEFINED_ARB: super::c_int = 0x202A;
+
+    pub const WGL_TYPE_RGBA_ARB: super::c_int = 0x202B;
+    pub const WGL_TYPE_COLORINDEX_ARB: super::c_int = 0x202C;
+}
+
+/// Use with [`WGL_ARB_pixel_format`](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_pixel_format.txt)
+/// to enable sRGB framebuffer update and rendering.
+///
+/// Defined in [`WGL_EXT_framebuffer_sRGB`](https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_framebuffer_sRGB.txt).
+///
+/// > Accepted by the `<piAttributes>` parameter of
+/// > wglGetPixelFormatAttribivEXT, wglGetPixelFormatAttribfvEXT, and
+/// > the `<piAttribIList>` and `<pfAttribIList>` of wglChoosePixelFormatEXT.
+pub const WGL_FRAMEBUFFER_SRGB_CAPABLE_EXT: c_int = 0x20A9;
+
+pub use arb_multisample::*;
+/// Constants for controlling multisampling behaviour, defined in
+/// [`ARB_multisample`](https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_multisample.txt).
+pub mod arb_multisample {
+    pub const GLX_SAMPLE_BUFFERS_ARB: super::c_int = 100000;
+    pub const GLX_SAMPLES_ARB: super::c_int = 100001;
+
+    pub const WGL_SAMPLE_BUFFERS_ARB: super::c_int = 0x2041;
+    pub const WGL_SAMPLES_ARB: super::c_int = 0x2042;
+
+    pub const MULTISAMPLE_ARB: super::c_int = 0x809D;
+    pub const SAMPLE_ALPHA_TO_COVERAGE_ARB: super::c_int = 0x809E;
+    pub const SAMPLE_ALPHA_TO_ONE_ARB: super::c_int = 0x809F;
+    pub const SAMPLE_COVERAGE_ARB: super::c_int = 0x80A0;
+
+    pub const MULTISAMPLE_BIT_ARB: super::c_int = 0x20000000;
+
+    pub const SAMPLE_BUFFERS_ARB: super::c_int = 0x80A8;
+    pub const SAMPLES_ARB: super::c_int = 0x80A9;
+    pub const SAMPLE_COVERAGE_VALUE_ARB: super::c_int = 0x80AA;
+    pub const SAMPLE_COVERAGE_INVERT_ARB: super::c_int = 0x80AB;
+}
+
+pub use wgl_arb_create_context::*;
+/// Constants for creating OpenGL contexts using [`WGL_ARB_create_context`](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_create_context.txt).
+pub mod wgl_arb_create_context {
+    pub const WGL_CONTEXT_MAJOR_VERSION_ARB: super::c_int = 0x2091;
+    pub const WGL_CONTEXT_MINOR_VERSION_ARB: super::c_int = 0x2092;
+    pub const WGL_CONTEXT_LAYER_PLANE_ARB: super::c_int = 0x2093;
+    pub const WGL_CONTEXT_FLAGS_ARB: super::c_int = 0x2094;
+    pub const WGL_CONTEXT_PROFILE_MASK_ARB: super::c_int = 0x9126;
+
+    pub const WGL_CONTEXT_DEBUG_BIT_ARB: super::c_int = 0x0001;
+    pub const WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB: super::c_int = 0x0002;
+
+    pub const WGL_CONTEXT_CORE_PROFILE_BIT_ARB: super::c_int = 0x00000001;
+    pub const WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB: super::c_int = 0x00000002;
+
+    pub const ERROR_INVALID_VERSION_ARB: super::c_int = 0x2095;
+    pub const ERROR_INVALID_PROFILE_ARB: super::c_int = 0x2096;
+}
+
 /// The predefined cursor styles.
 pub enum IDCursor {
     /// Standard arrow and small hourglass
