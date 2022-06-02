@@ -9,14 +9,11 @@ use core::ptr;
 pub mod c_macros;
 pub mod constants;
 pub mod extern_bindings;
+pub mod prelude;
 pub mod structs;
 pub mod typedefs;
 
-pub use c_macros::*;
-pub use constants::*;
-pub use extern_bindings::*;
-pub use structs::*;
-pub use typedefs::*;
+use prelude::*;
 
 use crate::{
     c_str, gather_null_terminated_bytes, str_util::min_alloc_lossy_into_string, utf16_null,
