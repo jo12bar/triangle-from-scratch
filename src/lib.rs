@@ -2,8 +2,6 @@ pub mod str_util;
 #[cfg(windows)]
 pub mod win32;
 
-pub mod gl;
-
 pub use str_util::wide_null;
 
 /// Gathers up the bytes from a buffer into a vector, copying them.

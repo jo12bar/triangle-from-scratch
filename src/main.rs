@@ -6,11 +6,10 @@
 use core::ptr;
 
 use c_types::CInt;
+use gl::bindings::prelude::*;
 
 use triangle_from_scratch::{
-    c_str,
-    gl::bindings::prelude::*,
-    utf16_null,
+    c_str, utf16_null,
     win32::{
         create_app_window, describe_pixel_format, do_wgl_choose_pixel_format_arb,
         do_wgl_create_context_attribs_arb, get_any_message, get_dc, get_process_handle,

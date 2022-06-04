@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 c-types = { path = "crates/c-types", package = "triangle-from-scratch-c-types" }
+gl = { path = "crates/gl", package = "triangle-from-scratch-gl" }
 
 [profile.release]
 lto = "thin"
