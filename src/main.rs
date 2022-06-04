@@ -8,15 +8,12 @@ use core::ptr;
 use c_types::CInt;
 use gl::bindings::prelude::*;
 
-use triangle_from_scratch::{
-    c_str, utf16_null,
-    win32::{
-        create_app_window, describe_pixel_format, do_wgl_choose_pixel_format_arb,
-        do_wgl_create_context_attribs_arb, get_any_message, get_dc, get_process_handle,
-        get_wgl_basics, get_window_userdata, load_library, load_predefined_cursor,
-        post_quit_message, prelude::*, register_class, release_dc, set_pixel_format,
-        set_window_userdata, translate_message, wgl_delete_context, wgl_make_current,
-    },
+use win32::{
+    c_str, create_app_window, describe_pixel_format, do_wgl_choose_pixel_format_arb,
+    do_wgl_create_context_attribs_arb, get_any_message, get_dc, get_process_handle, get_wgl_basics,
+    get_window_userdata, load_library, load_predefined_cursor, post_quit_message, prelude::*,
+    register_class, release_dc, set_pixel_format, set_window_userdata, translate_message,
+    utf16_null, wgl_delete_context, wgl_make_current,
 };
 
 const WINDOW_CLASS: &str = "Sample Window Class";

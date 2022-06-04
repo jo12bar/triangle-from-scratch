@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "triangle-from-scratch-c-types",
  "triangle-from-scratch-gl",
+ "triangle-from-scratch-win32",
 ]
 
 [[package]]
@@ -16,6 +17,13 @@ version = "0.1.0"
 
 [[package]]
 name = "triangle-from-scratch-gl"
+version = "0.1.0"
+dependencies = [
+ "triangle-from-scratch-c-types",
+]
+
+[[package]]
+name = "triangle-from-scratch-win32"
 version = "0.1.0"
 dependencies = [
  "triangle-from-scratch-c-types",

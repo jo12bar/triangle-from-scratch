@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 //! Bindings to Win32 structs, types, and functions.
 
 // Win32 names are very incompatible with Rust and Clippy's default lints, so
@@ -10,16 +12,31 @@ pub mod c_macros;
 pub mod constants;
 pub mod extern_bindings;
 pub mod prelude;
+pub mod str_util;
 pub mod structs;
 pub mod typedefs;
 
 use c_types::*;
 use prelude::*;
 
-use crate::{
-    c_str, gather_null_terminated_bytes, str_util::min_alloc_lossy_into_string, utf16_null,
-    wide_null,
-};
+use str_util::{min_alloc_lossy_into_string, wide_null};
+
+/// Gathers up the bytes from a buffer into a vector, copying them.
+///
+/// ## Safety
+///
+/// The byte sequence must be null-terminated. Otherwise, the vector will continue accumulating
+/// bytes until either a null byte is reached or the program segfaults.
+///
+/// The output excludes the terminating null byte.
+pub unsafe fn gather_null_terminated_bytes(mut p: *const u8) -> Vec<u8> {
+    let mut v = vec![];
+    while *p != 0 {
+        v.push(*p);
+        p = p.add(1);
+    }
+    v
+}
 
 // Prepares the specified window for painting.
 ///
