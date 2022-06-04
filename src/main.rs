@@ -3,7 +3,7 @@
 // the release profile).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use core::ptr;
+use std::{ffi::CStr, mem, ptr};
 
 use c_types::CInt;
 use gl::bindings::prelude::*;
@@ -173,9 +173,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 struct WindowData {
     hdc: HDC,
     hglrc: HGLRC,
+
     lib_opengl32: HMODULE,
+
+    has_setup_ran: bool,
+
+    gl_attach_shader: glAttachShader_t,
+    gl_bind_buffer: glBindBuffer_t,
+    gl_bind_vertex_array: glBindVertexArray_t,
+    gl_buffer_data: glBufferData_t,
     gl_clear: glClear_t,
     gl_clear_color: glClearColor_t,
+    gl_compile_shader: glCompileShader_t,
+    gl_create_program: glCreateProgram_t,
+    gl_create_shader: glCreateShader_t,
+    gl_delete_shader: glDeleteShader_t,
+    gl_draw_arrays: glDrawArrays_t,
+    gl_draw_elements: glDrawElements_t,
+    gl_enable_vertex_attrib_array: glEnableVertexAttribArray_t,
+    gl_gen_buffers: glGenBuffers_t,
+    gl_gen_vertex_arrays: glGenVertexArrays_t,
+    gl_get_program_info_log: glGetProgramInfoLog_t,
+    gl_get_program_iv: glGetProgramiv_t,
+    gl_get_shader_info_log: glGetShaderInfoLog_t,
+    gl_get_shader_iv: glGetShaderiv_t,
+    gl_link_program: glLinkProgram_t,
+    gl_shader_source: glShaderSource_t,
+    gl_use_program: glUseProgram_t,
+    gl_vertex_attrib_pointer: glVertexAttribPointer_t,
+
+    vao: GLuint,
+    vbo: GLuint,
+    ebo: GLuint,
+    shader_program: GLuint,
 }
 
 impl WindowData {
@@ -207,8 +237,35 @@ impl WindowData {
     pub unsafe fn load_gl_functions(&mut self) {
         use core::mem::transmute;
 
+        self.gl_attach_shader = transmute(self.gl_get_proc_address(c_str!("glAttachShader")));
+        self.gl_bind_buffer = transmute(self.gl_get_proc_address(c_str!("glBindBuffer")));
+        self.gl_bind_vertex_array =
+            transmute(self.gl_get_proc_address(c_str!("glBindVertexArray")));
+        self.gl_buffer_data = transmute(self.gl_get_proc_address(c_str!("glBufferData")));
         self.gl_clear = transmute(self.gl_get_proc_address(c_str!("glClear")));
         self.gl_clear_color = transmute(self.gl_get_proc_address(c_str!("glClearColor")));
+        self.gl_compile_shader = transmute(self.gl_get_proc_address(c_str!("glCompileShader")));
+        self.gl_create_program = transmute(self.gl_get_proc_address(c_str!("glCreateProgram")));
+        self.gl_create_shader = transmute(self.gl_get_proc_address(c_str!("glCreateShader")));
+        self.gl_delete_shader = transmute(self.gl_get_proc_address(c_str!("glDeleteShader")));
+        self.gl_draw_arrays = transmute(self.gl_get_proc_address(c_str!("glDrawArrays")));
+        self.gl_draw_elements = transmute(self.gl_get_proc_address(c_str!("glDrawElements")));
+        self.gl_enable_vertex_attrib_array =
+            transmute(self.gl_get_proc_address(c_str!("glEnableVertexAttribArray")));
+        self.gl_gen_buffers = transmute(self.gl_get_proc_address(c_str!("glGenBuffers")));
+        self.gl_gen_vertex_arrays =
+            transmute(self.gl_get_proc_address(c_str!("glGenVertexArrays")));
+        self.gl_get_program_info_log =
+            transmute(self.gl_get_proc_address(c_str!("glGetProgramInfoLog")));
+        self.gl_get_program_iv = transmute(self.gl_get_proc_address(c_str!("glGetProgramiv")));
+        self.gl_get_shader_info_log =
+            transmute(self.gl_get_proc_address(c_str!("glGetShaderInfoLog")));
+        self.gl_get_shader_iv = transmute(self.gl_get_proc_address(c_str!("glGetShaderiv")));
+        self.gl_link_program = transmute(self.gl_get_proc_address(c_str!("glLinkProgram")));
+        self.gl_shader_source = transmute(self.gl_get_proc_address(c_str!("glShaderSource")));
+        self.gl_use_program = transmute(self.gl_get_proc_address(c_str!("glUseProgram")));
+        self.gl_vertex_attrib_pointer =
+            transmute(self.gl_get_proc_address(c_str!("glVertexAttribPointer")));
     }
 }
 
@@ -265,8 +322,12 @@ pub unsafe extern "system" fn window_procedure(
             Ok(ptr) if !ptr.is_null() => {
                 let window_data = ptr.as_mut().unwrap();
 
-                (window_data.gl_clear_color.unwrap())(0.6, 0.7, 0.8, 1.0);
-                (window_data.gl_clear.unwrap())(GL_COLOR_BUFFER_BIT);
+                if !window_data.has_setup_ran {
+                    gl_setup(window_data).unwrap();
+                    window_data.has_setup_ran = true;
+                }
+
+                gl_paint(window_data).unwrap();
 
                 // Do all OpenGL drawing before this line:
                 SwapBuffers(window_data.hdc);
@@ -325,4 +386,191 @@ pub unsafe extern "system" fn window_procedure(
     }
 
     0
+}
+
+#[rustfmt::skip]
+const TRIANGLE_VERTICES: [f32; 9] = [
+    -0.5, -0.5, 0.0,
+     0.5, -0.5, 0.0,
+     0.0,  0.5, 0.0,
+];
+
+#[rustfmt::skip]
+const TRIANGLE_INDICES: [GLuint; 3] = [
+    0, 1, 2
+];
+
+const VERTEX_SHADER_SOURCE: &[u8] = c_str!(include_str!("./vertex.vs"));
+const FRAGMENT_SHADER_SOURCE: &[u8] = c_str!(include_str!("./fragment.fs"));
+
+fn gl_setup(window_data: &mut WindowData) -> Result<(), Box<dyn std::error::Error>> {
+    let gl_attach_shader = window_data.gl_attach_shader.unwrap();
+    let gl_bind_buffer = window_data.gl_bind_buffer.unwrap();
+    let gl_bind_vertex_array = window_data.gl_bind_vertex_array.unwrap();
+    let gl_buffer_data = window_data.gl_buffer_data.unwrap();
+    let gl_compile_shader = window_data.gl_compile_shader.unwrap();
+    let gl_create_program = window_data.gl_create_program.unwrap();
+    let gl_create_shader = window_data.gl_create_shader.unwrap();
+    let gl_delete_shader = window_data.gl_delete_shader.unwrap();
+    let gl_enable_vertex_attrib_array = window_data.gl_enable_vertex_attrib_array.unwrap();
+    let gl_gen_buffers = window_data.gl_gen_buffers.unwrap();
+    let gl_gen_vertex_arrays = window_data.gl_gen_vertex_arrays.unwrap();
+    let gl_link_program = window_data.gl_link_program.unwrap();
+    let gl_shader_source = window_data.gl_shader_source.unwrap();
+    let gl_vertex_attrib_pointer = window_data.gl_vertex_attrib_pointer.unwrap();
+
+    unsafe {
+        // Gen VAO, VBO, and EBO
+        gl_gen_vertex_arrays(1, &mut window_data.vao);
+        gl_gen_buffers(1, &mut window_data.vbo);
+        gl_gen_buffers(1, &mut window_data.ebo);
+
+        // Bind VAO
+        gl_bind_vertex_array(window_data.vao);
+
+        // Bind triangle VBO
+        gl_bind_buffer(GL_ARRAY_BUFFER, window_data.vbo);
+        gl_buffer_data(
+            GL_ARRAY_BUFFER,
+            mem::size_of_val(&TRIANGLE_VERTICES) as _,
+            TRIANGLE_VERTICES.as_ptr() as _,
+            GL_STATIC_DRAW,
+        );
+
+        // Bind triangle EBO
+        gl_bind_buffer(GL_ELEMENT_ARRAY_BUFFER, window_data.ebo);
+        gl_buffer_data(
+            GL_ELEMENT_ARRAY_BUFFER,
+            mem::size_of_val(&TRIANGLE_INDICES) as _,
+            TRIANGLE_INDICES.as_ptr() as _,
+            GL_STATIC_DRAW,
+        );
+
+        // Set vertex attrbute pointers tied to the VBO and the VAO
+        gl_vertex_attrib_pointer(
+            0,
+            3,
+            GL_FLOAT,
+            GL_FALSE,
+            3 * mem::size_of::<f32>() as GLsizei,
+            0 as _,
+        );
+        gl_enable_vertex_attrib_array(0);
+
+        // Load and compile vertex shader
+        let vertex_shader = gl_create_shader(GL_VERTEX_SHADER);
+        gl_shader_source(
+            vertex_shader,
+            1,
+            [VERTEX_SHADER_SOURCE.as_ptr()].as_ptr() as _,
+            ptr::null(),
+        );
+        gl_compile_shader(vertex_shader);
+        gl_print_shader_compile_status(window_data, vertex_shader, "vertex.vs");
+
+        // Load and compile fragment shader
+        let fragment_shader = gl_create_shader(GL_FRAGMENT_SHADER);
+        gl_shader_source(
+            fragment_shader,
+            1,
+            [FRAGMENT_SHADER_SOURCE.as_ptr()].as_ptr() as _,
+            ptr::null(),
+        );
+        gl_compile_shader(fragment_shader);
+        gl_print_shader_compile_status(window_data, fragment_shader, "fragment.fs");
+
+        // Link shader objects into a program
+        window_data.shader_program = gl_create_program();
+        gl_attach_shader(window_data.shader_program, vertex_shader);
+        gl_attach_shader(window_data.shader_program, fragment_shader);
+        gl_link_program(window_data.shader_program);
+        gl_print_program_link_status(window_data, window_data.shader_program, "main");
+
+        // Delete now unneeded shader objects
+        gl_delete_shader(fragment_shader);
+        gl_delete_shader(vertex_shader);
+    }
+
+    Ok(())
+}
+
+fn gl_paint(window_data: &mut WindowData) -> Result<(), Box<dyn std::error::Error>> {
+    let gl_bind_vertex_array = window_data.gl_bind_vertex_array.unwrap();
+    let gl_clear_color = window_data.gl_clear_color.unwrap();
+    let gl_clear = window_data.gl_clear.unwrap();
+    let gl_draw_elements = window_data.gl_draw_elements.unwrap();
+    let gl_use_program = window_data.gl_use_program.unwrap();
+
+    unsafe {
+        gl_clear_color(0.6, 0.7, 0.8, 1.0);
+        gl_clear(GL_COLOR_BUFFER_BIT);
+
+        gl_use_program(window_data.shader_program);
+        gl_bind_vertex_array(window_data.vao);
+        gl_draw_elements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0 as _);
+    }
+
+    Ok(())
+}
+
+fn gl_print_shader_compile_status(window_data: &mut WindowData, shader: GLuint, shader_name: &str) {
+    let gl_get_shader_iv = window_data.gl_get_shader_iv.unwrap();
+
+    let mut success: GLint = 0;
+    unsafe { gl_get_shader_iv(shader, GL_COMPILE_STATUS, &mut success) };
+
+    if success != 1 {
+        let gl_get_shader_info_log = window_data.gl_get_shader_info_log.unwrap();
+
+        let mut info_log: [u8; 512] = [0; 512];
+        let mut info_log_length: GLsizei = 0;
+        unsafe {
+            gl_get_shader_info_log(
+                shader,
+                512,
+                &mut info_log_length,
+                info_log.as_mut_ptr() as *mut GLchar,
+            )
+        };
+
+        let info_log_str = CStr::from_bytes_with_nul(&info_log[..=info_log_length as usize])
+            .expect("glGetShaderInfoLog returned in invalid C-style string")
+            .to_str()
+            .expect("glGetShaderInfoLog returned a valid C-style string with invalid UTF-8 data");
+
+        eprintln!("Error compiling shader {shader} ({shader_name}):\n{info_log_str}");
+    } else {
+        println!("Successfully compiled shader {shader} ({shader_name})");
+    }
+}
+
+fn gl_print_program_link_status(window_data: &mut WindowData, program: GLuint, program_name: &str) {
+    let gl_get_program_iv = window_data.gl_get_program_iv.unwrap();
+
+    let mut success: GLint = 0;
+    unsafe { gl_get_program_iv(program, GL_LINK_STATUS, &mut success) };
+
+    if success != 1 {
+        let gl_get_program_info_log = window_data.gl_get_program_info_log.unwrap();
+
+        let mut info_log: [u8; 512] = [0; 512];
+        let mut info_log_length: GLsizei = 0;
+        unsafe {
+            gl_get_program_info_log(
+                program,
+                512,
+                &mut info_log_length,
+                info_log.as_mut_ptr() as *mut GLchar,
+            )
+        };
+
+        let info_log_str = CStr::from_bytes_with_nul(&info_log[..=info_log_length as usize])
+            .expect("glGetProgramInfoLog returned in invalid C-style string")
+            .to_str()
+            .expect("glGetProgramInfoLog returned a valid C-style string with invalid UTF-8 data");
+
+        eprintln!("Error linking program {program} ({program_name}):\n{info_log_str}");
+    } else {
+        println!("Successfully linked program {program} ({program_name})");
+    }
 }
