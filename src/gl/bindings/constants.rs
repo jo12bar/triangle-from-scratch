@@ -4,7 +4,7 @@
 //! [`gl.xml`](https://github.com/KhronosGroup/OpenGL-Registry/blob/main/xml/gl.xml)
 //! in the OpenGL registry.
 
-use crate::c_types::*;
+use c_types::*;
 
 pub const GL_CURRENT_BIT: CUInt = 0x00000001;
 pub const GL_POINT_BIT: CUInt = 0x00000002;

@@ -13,7 +13,7 @@ pub mod prelude;
 pub mod structs;
 pub mod typedefs;
 
-use crate::c_types::*;
+use c_types::*;
 use prelude::*;
 
 use crate::{

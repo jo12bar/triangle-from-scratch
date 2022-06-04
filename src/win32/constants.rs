@@ -3,7 +3,7 @@
 //! for C preprocessor macros that act like functions. For that, see [`super::c_macros`].
 
 use super::typedefs::*;
-use crate::c_types::*;
+use c_types::*;
 
 /// A [window class style](https://docs.microsoft.com/en-us/windows/win32/winmsg/window-class-styles).
 ///
@@ -330,7 +330,7 @@ pub use wgl_pixel_format::*;
 /// Base constants for use with the [`WGL_ARB_pixel_format`](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_pixel_format.txt)
 /// extension.
 pub mod wgl_pixel_format {
-    use crate::c_types::*;
+    use c_types::*;
 
     pub const WGL_NUMBER_PIXEL_FORMATS_ARB: CInt = 0x2000;
     pub const WGL_DRAW_TO_WINDOW_ARB: CInt = 0x2001;
@@ -399,7 +399,7 @@ pub use arb_multisample::*;
 /// Constants for controlling multisampling behaviour, defined in
 /// [`ARB_multisample`](https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_multisample.txt).
 pub mod arb_multisample {
-    use crate::c_types::*;
+    use c_types::*;
 
     pub const GLX_SAMPLE_BUFFERS_ARB: CInt = 100000;
     pub const GLX_SAMPLES_ARB: CInt = 100001;
@@ -423,7 +423,7 @@ pub mod arb_multisample {
 pub use wgl_arb_create_context::*;
 /// Constants for creating OpenGL contexts using [`WGL_ARB_create_context`](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_create_context.txt).
 pub mod wgl_arb_create_context {
-    use crate::c_types::*;
+    use c_types::*;
 
     pub const WGL_CONTEXT_MAJOR_VERSION_ARB: CInt = 0x2091;
     pub const WGL_CONTEXT_MINOR_VERSION_ARB: CInt = 0x2092;

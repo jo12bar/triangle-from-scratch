@@ -5,9 +5,10 @@
 
 use core::ptr;
 
+use c_types::CInt;
+
 use triangle_from_scratch::{
     c_str,
-    c_types::CInt,
     gl::bindings::prelude::*,
     utf16_null,
     win32::{

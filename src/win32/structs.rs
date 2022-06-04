@@ -3,7 +3,7 @@
 use core::{fmt, ptr};
 
 use super::{constants::*, extern_bindings::FormatMessageW, typedefs::*, LocalFree};
-use crate::c_types::*;
+use c_types::*;
 
 /// Implements zero-initialization for C-style structs.
 ///

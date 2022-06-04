@@ -2,7 +2,6 @@ pub mod str_util;
 #[cfg(windows)]
 pub mod win32;
 
-pub mod c_types;
 pub mod gl;
 
 pub use str_util::wide_null;

@@ -1,7 +1,7 @@
 //! Bindings to Windows functions and variables contained in various DLLs.
 
 use super::{structs::*, typedefs::*};
-use crate::c_types::*;
+use c_types::*;
 
 #[link(name = "Gdi32")]
 extern "system" {

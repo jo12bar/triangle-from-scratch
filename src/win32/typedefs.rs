@@ -1,6 +1,6 @@
 //! Basic Win32 type definitions. More complicated structs are found in [`super::structs`].
 
-use crate::c_types::*;
+use c_types::*;
 
 /// An atom, representing a string in the system-defined atom table.
 ///

@@ -3,6 +3,13 @@ name = "triangle-from-scratch"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+c-types = { path = "crates/c-types", package = "triangle-from-scratch-c-types" }
+
+[profile.release]
+lto = "thin"
+
+[workspace]
+members = [
+    "crates/*"
+]

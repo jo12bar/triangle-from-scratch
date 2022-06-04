@@ -5,3 +5,10 @@ version = 3
 [[package]]
 name = "triangle-from-scratch"
 version = "0.1.0"
+dependencies = [
+ "triangle-from-scratch-c-types",
+]
+
+[[package]]
+name = "triangle-from-scratch-c-types"
+version = "0.1.0"

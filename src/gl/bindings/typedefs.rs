@@ -6,7 +6,7 @@
 
 use core::ffi::c_void;
 
-use crate::c_types::*;
+use c_types::*;
 
 pub type GLenum = CUInt;
 
@@ -102,7 +102,7 @@ use khrplatform_h::*;
 /// Types defined in [`khrplatform.h`](https://www.khronos.org/registry/EGL/api/KHR/khrplatform.h),
 /// which is maintained in the [EGL Registry](http://www.khronos.org/registry/EGL/).
 pub mod khrplatform_h {
-    use crate::c_types::*;
+    use c_types::*;
 
     pub type khronos_int8_t = CChar;
     pub type khronos_int16_t = CShort;
