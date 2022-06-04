@@ -1,5 +1,7 @@
 //! Basic Win32 type definitions. More complicated structs are found in [`super::structs`].
 
+use crate::c_types::*;
+
 /// An atom, representing a string in the system-defined atom table.
 ///
 /// [Per MSDN](https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types), this is
@@ -11,7 +13,7 @@
 pub type ATOM = WORD;
 
 /// In Windows, booleans are actually 16-bit ints.
-pub type BOOL = c_int;
+pub type BOOL = CInt;
 
 /// A byte (8 bits).
 ///
@@ -23,27 +25,6 @@ pub type BOOL = c_int;
 /// ```
 pub type BYTE = u8;
 
-/// The C representation of a `char` on x86.
-pub type c_char = i8;
-
-/// The C representation of an `int` on x86.
-pub type c_int = i32;
-
-/// The C representation of a `long` on x86.
-pub type c_long = i32;
-
-/// The C representation of a single-precision floating point number on x86
-pub type c_float = f32;
-
-/// The C representation of an `unsigned int` on x86.
-pub type c_uint = u32;
-
-/// The C representation of an `unsigned long` on x86.
-pub type c_ulong = u32;
-
-/// The C representation of an `unsigned short` on x86.
-pub type c_ushort = u16;
-
 /// A 32-bit unsigned integer. The range is 0 through 4294967295 decimal.
 ///
 /// [Per MSDN](https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types), this is
@@ -52,13 +33,13 @@ pub type c_ushort = u16;
 /// ```c
 /// typedef unsigned long DWORD;
 /// ```
-pub type DWORD = c_ulong;
+pub type DWORD = CULong;
 
 /// Pointer to a procedure of unknown type.
 pub type FARPROC = *mut core::ffi::c_void;
 
 /// Win32 float definition
-pub type FLOAT = c_float;
+pub type FLOAT = CFloat;
 
 /// A handle to a win32 object.
 ///
@@ -157,7 +138,7 @@ pub type HMODULE = HINSTANCE;
 pub type HWND = HANDLE;
 
 /// A 32-bit signed integer. See [MSDN](https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types#long).
-pub type LONG = c_long;
+pub type LONG = CLong;
 
 /// A signed long type for pointer precision. [Per MSDN](https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types),
 /// this should be used when casting a pointer to a `long` to perform pointer arithmetic.
@@ -189,7 +170,7 @@ pub type LPARAM = LONG_PTR;
 /// A pointer to an ANSI string.
 ///
 /// For UTF-16 strings, use [`LPCWSTR`] instead.
-pub type LPCSTR = *const c_char;
+pub type LPCSTR = *const CChar;
 
 /// A pointer to a constant value of any type.
 ///
@@ -259,7 +240,7 @@ pub type PVOID = *mut core::ffi::c_void;
 /// ```c
 /// typedef unsigned int UINT;
 /// ```
-pub type UINT = c_uint;
+pub type UINT = CUInt;
 
 /// An unsigned int type for pointer precision. [Per MSDN](https://docs.microsoft.com/en-us/windows/win32/winprog/windows-data-types),
 /// this should be used when casting a pointer to a `unsigned int` to perform pointer arithmetic.
@@ -297,7 +278,7 @@ pub type ULONG_PTR = usize;
 /// For now, we just represent it as a mutable buffer of `char`'s.
 ///
 /// [msdn-format-message-w]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessagew
-pub type va_list = *mut c_char;
+pub type va_list = *mut CChar;
 
 /// A 16-bit Unicode character.
 ///
@@ -337,4 +318,4 @@ pub type WNDPROC = Option<
 /// ```c
 /// typedef unsigned short WORD;
 /// ```
-pub type WORD = c_ushort;
+pub type WORD = CUShort;

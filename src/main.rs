@@ -6,14 +6,16 @@
 use core::ptr;
 
 use triangle_from_scratch::{
+    c_str,
+    c_types::CInt,
+    gl::bindings::prelude::*,
     utf16_null,
     win32::{
-        create_app_window, describe_pixel_format, do_some_painting_with,
-        do_wgl_choose_pixel_format_arb, do_wgl_create_context_attribs_arb,
-        fill_rect_with_sys_color, get_any_message, get_dc, get_process_handle, get_wgl_basics,
-        get_window_userdata, load_library, load_predefined_cursor, post_quit_message, prelude::*,
-        register_class, release_dc, set_pixel_format, set_window_userdata, translate_message,
-        wgl_delete_context, wgl_make_current,
+        create_app_window, describe_pixel_format, do_wgl_choose_pixel_format_arb,
+        do_wgl_create_context_attribs_arb, get_any_message, get_dc, get_process_handle,
+        get_wgl_basics, get_window_userdata, load_library, load_predefined_cursor,
+        post_quit_message, prelude::*, register_class, release_dc, set_pixel_format,
+        set_window_userdata, translate_message, wgl_delete_context, wgl_make_current,
     },
 };
 
@@ -104,8 +106,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pfd = unsafe { describe_pixel_format(hdc, pix_format) }?;
     unsafe { set_pixel_format(hdc, pix_format, &pfd) }?;
 
-    // Now, create a OpenGL 3.3 Core context, and give it to our window procedure for later use.
-    const OPENGL_CONTEXT_FLAGS: c_int = WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
+    // Now, create a OpenGL 4.6 Core context, and give it to our window procedure for later use.
+    const OPENGL_CONTEXT_FLAGS: CInt = WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
         | if cfg!(debug_assertions) {
             WGL_CONTEXT_DEBUG_BIT_ARB
         } else {
@@ -118,8 +120,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             hdc,
             ptr::null_mut(),
             &[
-                [WGL_CONTEXT_MAJOR_VERSION_ARB, 3],
-                [WGL_CONTEXT_MINOR_VERSION_ARB, 3], // opengl 3.3
+                [WGL_CONTEXT_MAJOR_VERSION_ARB, 4],
+                [WGL_CONTEXT_MINOR_VERSION_ARB, 6], // opengl 4.6
                 [
                     WGL_CONTEXT_PROFILE_MASK_ARB,
                     WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
@@ -136,6 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load the OpenGL DLL, and give the window procedure a handle to it.
     let lib_opengl32 = load_library("opengl32.dll")?;
     unsafe { (*lparam).lib_opengl32 = lib_opengl32 };
+    unsafe { (*lparam).load_gl_functions() };
 
     // Enable "adaptive" vsync if possible, otherwise normal vsync
     if wgl_extensions
@@ -174,6 +177,42 @@ struct WindowData {
     hdc: HDC,
     hglrc: HGLRC,
     lib_opengl32: HMODULE,
+    gl_clear: glClear_t,
+    gl_clear_color: glClearColor_t,
+}
+
+impl WindowData {
+    /// Get the address of an OpenGL function from [`Self::lib_opengl32`].
+    ///
+    /// - `name` must be a null-terminated ASCII string. This function will panic if the string is
+    ///   not null-terminated.
+    pub fn gl_get_proc_address(&self, name: &[u8]) -> *mut core::ffi::c_void {
+        assert!(*name.last().unwrap() == 0);
+
+        let p = unsafe { wglGetProcAddress(name.as_ptr().cast()) };
+
+        match p as usize {
+            0 | 1 | 2 | 3 | usize::MAX => unsafe {
+                GetProcAddress(self.lib_opengl32, name.as_ptr().cast())
+            },
+            _ => p,
+        }
+    }
+
+    /// Load handles to various OpenGL functions and store them in this struct.
+    ///
+    /// ## Safety
+    ///
+    /// - [`Self::lib_opengl32`] should be a valid handle to a currently-loaded instance of `opengl32.dll`.
+    /// - The functions loaded from [`Self::lib_opengl32`] *might* be null pointers. This will be
+    ///   represented by [`Option::None`]. Also, if `opengl32.dll` has been modified from its expected
+    ///   contents then the functions may be undetectably invalid. Call them at your own risk!
+    pub unsafe fn load_gl_functions(&mut self) {
+        use core::mem::transmute;
+
+        self.gl_clear = transmute(self.gl_get_proc_address(c_str!("glClear")));
+        self.gl_clear_color = transmute(self.gl_get_proc_address(c_str!("glClearColor")));
+    }
 }
 
 /// Zeros out all members of this structure.
@@ -225,29 +264,28 @@ pub unsafe extern "system" fn window_procedure(
         }
 
         // Paint the window's client area.
-        WM_PAINT => {
-            match get_window_userdata::<WindowData>(hwnd) {
-                Ok(ptr) if !ptr.is_null() => {
-                    println!("painting! hdc: {:?}", (*ptr).hdc);
-                    // TODO: Real painting, eventually
-                }
+        WM_PAINT => match get_window_userdata::<WindowData>(hwnd) {
+            Ok(ptr) if !ptr.is_null() => {
+                let window_data = ptr.as_mut().unwrap();
 
-                Ok(_) => {
-                    println!("GWLP_USERDATA pointer is null.");
-                }
+                (window_data.gl_clear_color.unwrap())(0.6, 0.7, 0.8, 1.0);
+                (window_data.gl_clear.unwrap())(GL_COLOR_BUFFER_BIT);
 
-                Err(e) => {
-                    println!("Error while getting the GWLP_USERDATA pointer: {e}");
-                }
+                // Do all OpenGL drawing before this line:
+                SwapBuffers(window_data.hdc);
+
+                // Immediately request a redraw:
+                InvalidateRect(hwnd, ptr::null(), 0);
             }
 
-            do_some_painting_with(hwnd, |hdc, _erase_bg, target_rect| {
-                // Just fill the background with the default window color
-                fill_rect_with_sys_color(hdc, &target_rect, SysColor::Window)?;
-                Ok(())
-            })
-            .unwrap_or_else(|e| println!("Error during painting: {e}"));
-        }
+            Ok(_) => {
+                println!("GWLP_USERDATA pointer is null.");
+            }
+
+            Err(e) => {
+                println!("Error while getting the GWLP_USERDATA pointer: {e}");
+            }
+        },
 
         // Destroy the window class when told to close.
         WM_CLOSE => {

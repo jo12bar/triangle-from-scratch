@@ -1,22 +1,26 @@
 //! Bindings to Windows functions and variables contained in various DLLs.
 
 use super::{structs::*, typedefs::*};
+use crate::c_types::*;
 
 #[link(name = "Gdi32")]
 extern "system" {
     /// See [`ChoosePixelFormat` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-choosepixelformat).
-    pub fn ChoosePixelFormat(hdc: HDC, ppfd: *const PIXELFORMATDESCRIPTOR) -> c_int;
+    pub fn ChoosePixelFormat(hdc: HDC, ppfd: *const PIXELFORMATDESCRIPTOR) -> CInt;
 
     // See [`DescribePixelFormat` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-describepixelformat).
     pub fn DescribePixelFormat(
         hdc: HDC,
-        iPixelFormat: c_int,
-        nBytes: c_uint,
+        iPixelFormat: CInt,
+        nBytes: CUInt,
         ppfd: LPPIXELFORMATDESCRIPTOR,
-    ) -> c_int;
+    ) -> CInt;
 
     /// See [`SetPixelFormat` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-setpixelformat).
-    pub fn SetPixelFormat(hdc: HDC, format: c_int, ppfd: *const PIXELFORMATDESCRIPTOR) -> BOOL;
+    pub fn SetPixelFormat(hdc: HDC, format: CInt, ppfd: *const PIXELFORMATDESCRIPTOR) -> BOOL;
+
+    /// See [`SwapBuffers` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-swapbuffers).
+    pub fn SwapBuffers(Arg1: HDC) -> BOOL;
 }
 
 #[link(name = "Kernel32")]
@@ -73,24 +77,24 @@ extern "system" {
 pub type wglChoosePixelFormatARB_t = Option<
     unsafe extern "system" fn(
         hdc: HDC,
-        piAttribIList: *const c_int,
+        piAttribIList: *const CInt,
         pfAttribFList: *const FLOAT,
         nMaxFormats: UINT,
-        piFormats: *mut c_int,
+        piFormats: *mut CInt,
         nNumFormats: *mut UINT,
     ) -> BOOL,
 >;
 
 /// Type for [wglCreateContextAttribsARB](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_create_context.txt).
 pub type wglCreateContextAttribsARB_t = Option<
-    unsafe extern "system" fn(hDC: HDC, hShareContext: HGLRC, attribList: *const c_int) -> HGLRC,
+    unsafe extern "system" fn(hDC: HDC, hShareContext: HGLRC, attribList: *const CInt) -> HGLRC,
 >;
 
 /// Type for [`wglGetExtensionsStringARB`](https://www.khronos.org/registry/OpenGL/extensions/ARB/WGL_ARB_extensions_string.txt).
-pub type wglGetExtensionsStringARB_t = Option<unsafe extern "system" fn(HDC) -> *const c_char>;
+pub type wglGetExtensionsStringARB_t = Option<unsafe extern "system" fn(HDC) -> *const CChar>;
 
 /// Type for [wglSwapIntervalEXT](https://www.khronos.org/registry/OpenGL/extensions/EXT/WGL_EXT_swap_control.txt)
-pub type wglSwapIntervalEXT_t = Option<unsafe extern "system" fn(interval: c_int) -> BOOL>;
+pub type wglSwapIntervalEXT_t = Option<unsafe extern "system" fn(interval: CInt) -> BOOL>;
 
 #[link(name = "User32")]
 extern "system" {
@@ -103,10 +107,10 @@ extern "system" {
         lpClassName: LPCWSTR,
         lpWindowName: LPCWSTR,
         dwStyle: DWORD,
-        X: c_int,
-        Y: c_int,
-        nWidth: c_int,
-        nHeight: c_int,
+        X: CInt,
+        Y: CInt,
+        nWidth: CInt,
+        nHeight: CInt,
         hWndParent: HWND,
         hMenu: HMENU,
         hInstance: HINSTANCE,
@@ -126,7 +130,7 @@ extern "system" {
     pub fn EndPaint(hWnd: HWND, lpPaint: *const PAINTSTRUCT) -> BOOL;
 
     /// See [`FillRect` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-fillrect).
-    pub fn FillRect(hDC: HDC, lprc: *const RECT, hbr: HBRUSH) -> c_int;
+    pub fn FillRect(hDC: HDC, lprc: *const RECT, hbr: HBRUSH) -> CInt;
 
     /// See [`GetDC` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdc).
     pub fn GetDC(hWnd: HWND) -> HDC;
@@ -135,28 +139,31 @@ extern "system" {
     pub fn GetMessageW(lpMsg: LPMSG, hWnd: HWND, wMsgFilterMin: UINT, wMsgFilterMax: UINT) -> BOOL;
 
     /// See [`GetWindowLongPtrW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowlongptrw).
-    pub fn GetWindowLongPtrW(hWnd: HWND, nIndex: c_int) -> LONG_PTR;
+    pub fn GetWindowLongPtrW(hWnd: HWND, nIndex: CInt) -> LONG_PTR;
+
+    /// See [`InvalidateRect` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-invalidaterect).
+    pub fn InvalidateRect(hWnd: HWND, lpRect: *const RECT, bErase: BOOL) -> BOOL;
 
     /// See [`LoadCursorW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadcursorw).
     pub fn LoadCursorW(hInstance: HINSTANCE, lpCursorName: LPCWSTR) -> HCURSOR;
 
     /// See [`MessageBoxW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-messageboxw).
-    pub fn MessageBoxW(hWnd: HWND, lpText: LPCWSTR, lpCaption: LPCWSTR, uType: UINT) -> c_int;
+    pub fn MessageBoxW(hWnd: HWND, lpText: LPCWSTR, lpCaption: LPCWSTR, uType: UINT) -> CInt;
 
     /// See [`PostQuitMessage` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage).
-    pub fn PostQuitMessage(nExitCode: c_int);
+    pub fn PostQuitMessage(nExitCode: CInt);
 
     /// See [`RegisterClassW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassw).
     pub fn RegisterClassW(lpWndClass: *const WNDCLASSW) -> ATOM;
 
     /// See [`ReleaseDC` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-releasedc).
-    pub fn ReleaseDC(hWnd: HWND, hDC: HDC) -> c_int;
+    pub fn ReleaseDC(hWnd: HWND, hDC: HDC) -> CInt;
 
     /// See [`SetWindowLongPtrW` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowlongptrw).
-    pub fn SetWindowLongPtrW(hWnd: HWND, nIndex: c_int, dwNewLong: LONG_PTR) -> LONG_PTR;
+    pub fn SetWindowLongPtrW(hWnd: HWND, nIndex: CInt, dwNewLong: LONG_PTR) -> LONG_PTR;
 
     /// See [`ShowWindow` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow).
-    pub fn ShowWindow(hWnd: HWND, nCmdShow: c_int) -> BOOL;
+    pub fn ShowWindow(hWnd: HWND, nCmdShow: CInt) -> BOOL;
 
     /// See [`TranslateMessage` on MSDN](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-translatemessage).
     pub fn TranslateMessage(lpMsg: *const MSG) -> BOOL;

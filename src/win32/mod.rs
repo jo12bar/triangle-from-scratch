@@ -13,6 +13,7 @@ pub mod prelude;
 pub mod structs;
 pub mod typedefs;
 
+use crate::c_types::*;
 use prelude::*;
 
 use crate::{
@@ -85,10 +86,10 @@ pub unsafe fn create_window_ex_w(
     class_name: LPCWSTR,
     window_name: LPCWSTR,
     style: DWORD,
-    x: c_int,
-    y: c_int,
-    width: c_int,
-    height: c_int,
+    x: CInt,
+    y: CInt,
+    width: CInt,
+    height: CInt,
     parent: HWND,
     menu: HMENU,
     instance: HINSTANCE,
@@ -127,7 +128,7 @@ pub unsafe fn create_window_ex_w(
 pub unsafe fn choose_pixel_format(
     hdc: HDC,
     ppfd: &PIXELFORMATDESCRIPTOR,
-) -> Result<c_int, Win32Error> {
+) -> Result<CInt, Win32Error> {
     let index = ChoosePixelFormat(hdc, ppfd);
     if index != 0 {
         Ok(index)
@@ -147,7 +148,7 @@ pub unsafe fn choose_pixel_format(
 /// **See**: [`DescribePixelFormat()`]
 pub unsafe fn describe_pixel_format(
     hdc: HDC,
-    format: c_int,
+    format: CInt,
 ) -> Result<PIXELFORMATDESCRIPTOR, Win32Error> {
     let mut pfd = PIXELFORMATDESCRIPTOR::default();
     let max_index = DescribePixelFormat(
@@ -209,9 +210,9 @@ where
 pub unsafe fn do_wgl_choose_pixel_format_arb(
     f: wglChoosePixelFormatARB_t,
     hdc: HDC,
-    int_attrs: &[[c_int; 2]],
+    int_attrs: &[[CInt; 2]],
     float_attrs: &[[FLOAT; 2]],
-) -> Result<c_int, Win32Error> {
+) -> Result<CInt, Win32Error> {
     const APP_ERR: Win32Error = Win32Error(Win32Error::APPLICATION_ERROR_BIT);
 
     let i_ptr = match int_attrs.last() {
@@ -392,7 +393,7 @@ pub fn get_last_error() -> Win32Error {
 /// - `hdc` must be a valid handle to a DC.
 ///
 /// **See**: [`describe_pixel_format()`]
-pub unsafe fn get_max_pixel_format_index(hdc: HDC) -> Result<c_int, Win32Error> {
+pub unsafe fn get_max_pixel_format_index(hdc: HDC) -> Result<CInt, Win32Error> {
     let max_index = DescribePixelFormat(
         hdc,
         1,
@@ -613,7 +614,7 @@ pub fn load_predefined_cursor(cursor: IDCursor) -> Result<HCURSOR, Win32Error> {
 /// The exit code becomes the `wparam` of the [`WM_QUIT`] message your message loop eventually gets.
 ///
 /// **See:** [`PostQuitMessage`](https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage)
-pub fn post_quit_message(exit_code: c_int) {
+pub fn post_quit_message(exit_code: CInt) {
     unsafe { PostQuitMessage(exit_code) }
 }
 
@@ -671,7 +672,7 @@ pub fn set_last_error(e: Win32Error) {
 /// **See**: [`SetPixelFormat()`], [`choose_pixel_format()`].
 pub unsafe fn set_pixel_format(
     hdc: HDC,
-    format: c_int,
+    format: CInt,
     ppfd: &PIXELFORMATDESCRIPTOR,
 ) -> Result<(), Win32Error> {
     let success = SetPixelFormat(hdc, format, ppfd);

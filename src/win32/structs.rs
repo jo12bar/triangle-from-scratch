@@ -3,6 +3,7 @@
 use core::{fmt, ptr};
 
 use super::{constants::*, extern_bindings::FormatMessageW, typedefs::*, LocalFree};
+use crate::c_types::*;
 
 /// Implements zero-initialization for C-style structs.
 ///
@@ -37,10 +38,10 @@ pub struct WNDCLASSW {
     pub lpfnWndProc: WNDPROC,
     /// The number of extra bytes to allocate following the window-class structure. The system
     /// initializes the bytes to zero.
-    pub cbClsExtra: c_int,
+    pub cbClsExtra: CInt,
     /// The number of extra bytes to allocate following the window instance. The system initializes
     /// the bytes to zero.
-    pub cbWndExtra: c_int,
+    pub cbWndExtra: CInt,
     /// A handle to the instance that contains the window procedure for the class.
     pub hInstance: HINSTANCE,
     /// A handle to the class icon. This must be a handle to the icon _resource_. If this member
@@ -89,17 +90,17 @@ pub struct CREATESTRUCTW {
     /// is neither a child window nor owned, this will be a `NULL` handle.
     pub hwndParent: HWND,
     /// The height of the new window, in pixels.
-    pub cy: c_int,
+    pub cy: CInt,
     /// The width of the new window, in pixels.
-    pub cx: c_int,
+    pub cx: CInt,
     /// The y-coordinate of the upper left corner of the new window. If the window is a child window,
     /// coordinates are relative to the parent window. Otherwise, coordinates are relative to the
     /// screen origin.
-    pub y: c_int,
+    pub y: CInt,
     /// The x-coordinate of the upper left corner of the new window. If the window is a child window,
     /// coordinates are relative to the parent window. Otherwise, coordinates are relative to the
     /// screen origin.
-    pub x: c_int,
+    pub x: CInt,
     /// The [window style](https://docs.microsoft.com/en-us/windows/desktop/winmsg/window-styles)
     /// for the new window.
     pub style: LONG,
