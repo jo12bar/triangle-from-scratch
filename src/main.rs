@@ -389,10 +389,11 @@ pub unsafe extern "system" fn window_procedure(
 }
 
 #[rustfmt::skip]
-const TRIANGLE_VERTICES: [f32; 9] = [
-    -0.5, -0.5, 0.0,
-     0.5, -0.5, 0.0,
-     0.0,  0.5, 0.0,
+const TRIANGLE_VERTICES: [f32; 18] = [
+    // positions      // colors
+    -0.5, -0.5, 0.0,  1.0, 0.0, 0.0,
+     0.5, -0.5, 0.0,  0.0, 1.0, 0.0,
+     0.0,  0.5, 0.0,  0.0, 0.0, 1.0,
 ];
 
 #[rustfmt::skip]
@@ -447,15 +448,29 @@ fn gl_setup(window_data: &mut WindowData) -> Result<(), Box<dyn std::error::Erro
         );
 
         // Set vertex attrbute pointers tied to the VBO and the VAO
+        // position attribute
         gl_vertex_attrib_pointer(
             0,
             3,
             GL_FLOAT,
             GL_FALSE,
-            3 * mem::size_of::<f32>() as GLsizei,
+            (6 * mem::size_of::<f32>()) as _,
             0 as _,
         );
         gl_enable_vertex_attrib_array(0);
+
+        // color attribute
+        gl_vertex_attrib_pointer(
+            1,
+            3,
+            GL_FLOAT,
+            GL_FALSE,
+            (6 * mem::size_of::<f32>()) as _,
+            (3 * mem::size_of::<f32>()) as _,
+        );
+        gl_enable_vertex_attrib_array(1);
+
+        gl_bind_vertex_array(0);
 
         // Load and compile vertex shader
         let vertex_shader = gl_create_shader(GL_VERTEX_SHADER);
