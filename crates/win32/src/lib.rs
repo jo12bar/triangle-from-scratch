@@ -883,7 +883,7 @@ pub unsafe fn wgl_get_extension_string_arb(hdc: HDC) -> Result<String, Win32Erro
 
 /// Gets a OpenGL function address.
 ///
-/// The input should be a null-terminated function name string. Use the [`c_str!`][`super::c_str!`]
+/// The input should be a null-terminated function name string. Use the [`c_str!`]
 /// macro for assistance.
 ///
 /// - You must always have an active GL context for this to work. Otherwise you will always get an
